@@ -4,7 +4,8 @@ coverage/
 test-results/
 playwright-report/
 .visual-baselines/
-**/*-snapshots/
+**/*-snapshots/*-darwin.png
+**/*-snapshots/*-win32.png
 screenshots/
 /check-reports.zip
 .env
