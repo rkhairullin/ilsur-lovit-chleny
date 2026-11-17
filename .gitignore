@@ -6,6 +6,7 @@ playwright-report/
 .visual-baselines/
 **/*-snapshots/
 screenshots/
+/check-reports.zip
 .env
 .env.*
 !.env.example

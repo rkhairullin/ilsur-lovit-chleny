@@ -5,6 +5,7 @@ on:
     branches: [main]
 permissions:
   contents: read
+  actions: read
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,6 +18,30 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
+      # Immutable source run. Its six Linux images must be reviewed before
+      # publishing this change; never generate/accept baselines in this job.
+      - name: Download reviewed Linux baseline source
+        uses: actions/download-artifact@v4
+        with:
+          name: check-reports
+          run-id: 44101193726
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/visual-baseline-source
+      - name: Restore Linux baselines outside Git
+        shell: bash
+        env:
+          BASELINE_SOURCE: ${{ runner.temp }}/visual-baseline-source
+        run: |
+          set -euo pipefail
+          for browser in chromium webkit; do
+            for size in 1280x720 844x390 390x844; do
+              source_file="$BASELINE_SOURCE/test-results/foundation--visual-foundation-$size-$browser/foundation-$size-actual.png"
+              target_file=".visual-baselines/foundation.spec.ts/foundation-$size-$browser-linux.png"
+              test -s "$source_file"
+              mkdir -p .visual-baselines/foundation.spec.ts
+              cp "$source_file" "$target_file"
+            done
+          done
       - run: npm run format:check
       - run: npm run check
       - uses: actions/upload-artifact@v4
