@@ -2,6 +2,8 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/e2e",
+  snapshotPathTemplate:
+    "{testDir}/../../.visual-baselines/{testFilePath}/{arg}-{projectName}-{platform}{ext}",
   use: { baseURL: "http://127.0.0.1:3000", trace: "retain-on-failure" },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },

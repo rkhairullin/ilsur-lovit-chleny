@@ -3,6 +3,9 @@ dist/
 coverage/
 test-results/
 playwright-report/
+.visual-baselines/
+**/*-snapshots/
+screenshots/
 .env
 .env.*
 !.env.example
