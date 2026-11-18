@@ -28,6 +28,25 @@ test("page, keyboard link and API work in production build", async ({
   expect(errors).toEqual([]);
 });
 
+test("browser clock and random values can be controlled", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-01-02T03:04:05.000Z"));
+  await page.addInitScript(() => {
+    const values = [0.25, 0.75];
+    Math.random = () => values.shift() ?? 0.5;
+  });
+  await page.goto("/");
+
+  expect(
+    await page.evaluate(() => ({
+      time: new Date().toISOString(),
+      random: [Math.random(), Math.random(), Math.random()],
+    })),
+  ).toEqual({
+    time: "2026-01-02T03:04:05.000Z",
+    random: [0.25, 0.75, 0.5],
+  });
+});
+
 for (const viewport of [
   { width: 1280, height: 720 },
   { width: 844, height: 390 },
