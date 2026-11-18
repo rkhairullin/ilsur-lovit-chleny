@@ -16,7 +16,7 @@ test("serves health, page and stylesheet; rejects missing routes", async () => {
   const page = await app.inject("/");
   expect(page.statusCode).toBe(200);
   expect(page.headers["content-type"]).toContain("text/html");
-  expect(page.body).toContain("Скоро на танцполе");
+  expect(page.body).toContain("Ильсур ловит члены");
   const css = await app.inject("/style.css");
   expect(css.statusCode).toBe(200);
   expect(css.headers["content-type"]).toContain("text/css");

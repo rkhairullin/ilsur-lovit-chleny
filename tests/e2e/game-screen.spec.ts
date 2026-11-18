@@ -1,0 +1,160 @@
+import { expect, test } from "@playwright/test";
+
+test("keyboard positions, holding, and pause in the production build", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  const game = page.getByRole("main");
+  for (const [key, lane] of [
+    ["q", "upper-left"],
+    ["a", "lower-left"],
+    ["o", "upper-right"],
+    ["l", "lower-right"],
+  ] as const) {
+    await page.keyboard.down(key);
+    await expect(game).toHaveAttribute("data-position", lane);
+    await page.keyboard.up(key);
+    await expect(game).toHaveAttribute("data-position", "center");
+  }
+  await page.keyboard.down("q");
+  await page.keyboard.down("l");
+  await page.keyboard.down("q");
+  await expect(game).toHaveAttribute("data-position", "lower-right");
+  await page.keyboard.up("l");
+  await expect(game).toHaveAttribute("data-position", "upper-left");
+  await page.keyboard.press("Escape");
+  const resume = page.getByRole("button", { name: "Продолжить" });
+  await expect(resume).toBeFocused();
+  await expect(game).toHaveAttribute("data-position", "center");
+  await page.keyboard.up("q");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: "Пауза" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("button", { name: "Слева сверху" }),
+  ).toBeFocused();
+  await page.keyboard.down("Space");
+  await expect(game).toHaveAttribute("data-position", "upper-left");
+  await page.keyboard.up("Space");
+  expect(errors).toEqual([]);
+});
+
+test("touch release, multiple pointers and cancellation", async ({
+  browser,
+}) => {
+  const page = await browser.newPage({
+    hasTouch: true,
+    viewport: { width: 844, height: 390 },
+  });
+  await page.goto("/");
+  const game = page.getByRole("main");
+  const left = page.getByRole("button", { name: "Слева сверху" });
+  const right = page.getByRole("button", { name: "Справа снизу" });
+  await left.tap();
+  await expect(game).toHaveAttribute("data-position", "center");
+  // Synthetic pointers make simultaneous and cancelled touches reproducible in both engines.
+  await page.evaluate(() => {
+    HTMLButtonElement.prototype.setPointerCapture = () => {};
+  });
+  const pointer = (pointerId: number) => ({
+    pointerId,
+    pointerType: "touch",
+    button: 0,
+    bubbles: true,
+  });
+  await left.dispatchEvent("pointerdown", pointer(1));
+  await expect(game).toHaveAttribute("data-position", "upper-left");
+  await right.dispatchEvent("pointerdown", pointer(2));
+  await expect(game).toHaveAttribute("data-position", "lower-right");
+  await right.dispatchEvent("pointercancel", pointer(2));
+  await expect(game).toHaveAttribute("data-position", "upper-left");
+  await left.dispatchEvent("lostpointercapture", pointer(1));
+  await expect(game).toHaveAttribute("data-position", "center");
+  await page.close();
+});
+
+test("rotation and loss of focus pause and clear input", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Поверните телефон" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("heading", { name: "Поверните телефон" }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.keyboard.down("o");
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(page.getByRole("button", { name: "Продолжить" })).toBeVisible();
+  await expect(page.getByRole("main")).toHaveAttribute(
+    "data-position",
+    "center",
+  );
+  await page.keyboard.up("o");
+});
+
+test("production API health and deterministic clock and random values", async ({
+  page,
+  request,
+}) => {
+  expect(await (await request.get("/api/health")).json()).toEqual({
+    status: "ok",
+  });
+  await page.clock.setFixedTime(new Date("2026-01-02T03:04:05.000Z"));
+  await page.addInitScript(() => {
+    const values = [0.25, 0.75];
+    Math.random = () => values.shift() ?? 0.5;
+  });
+  await page.goto("/");
+  expect(
+    await page.evaluate(() => [
+      new Date().toISOString(),
+      Math.random(),
+      Math.random(),
+      Math.random(),
+    ]),
+  ).toEqual(["2026-01-02T03:04:05.000Z", 0.25, 0.75, 0.5]);
+});
+
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 844, height: 390 },
+  { width: 390, height: 844 },
+]) {
+  test(`layout ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    const bounds = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.scrollHeight,
+    ]);
+    expect(bounds).toEqual([viewport.width, viewport.height]);
+    if (viewport.width > viewport.height) {
+      for (const button of await page.getByRole("button").all()) {
+        const box = (await button.boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+      }
+    }
+  });
+  test(`@visual game ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await expect(page.getByRole("main")).toHaveAttribute(
+      "data-position",
+      "center",
+    );
+    await expect(page).toHaveScreenshot(
+      `game-${viewport.width}x${viewport.height}.png`,
+    );
+  });
+}
