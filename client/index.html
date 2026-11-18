@@ -2,17 +2,76 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta name="color-scheme" content="dark" />
-    <title>Аркада для друзей</title>
+    <title>Ильсур ловит члены</title>
     <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/game/main.ts"></script>
   </head>
   <body>
-    <main>
-      <p class="eyebrow">Закрытая аркада для компании друзей</p>
-      <h1>Скоро на танцполе</h1>
-      <p>Основа проекта подготовлена. Игра появится на следующих этапах.</p>
-      <a href="/api/health">Проверить сервер</a>
+    <main class="game" aria-label="Ильсур ловит члены">
+      <header class="hud">
+        <div>Членов напихано <b>0</b></div>
+        <div>Серия <b>0</b></div>
+        <div>Множитель <b>×1</b></div>
+        <div>Промахи <b>0 / 6</b></div>
+        <button
+          id="pause"
+          type="button"
+          aria-label="Пауза"
+          aria-keyshortcuts="Escape"
+        >
+          Ⅱ
+        </button>
+      </header>
+      <section class="arena" aria-label="Игровое поле">
+        <canvas width="1200" height="540" aria-hidden="true"></canvas>
+        <div class="controls">
+          <button
+            type="button"
+            data-lane="upper-left"
+            aria-label="Слева сверху"
+            aria-keyshortcuts="Q"
+          >
+            <kbd>Q</kbd><span aria-hidden="true">↑</span>
+          </button>
+          <button
+            type="button"
+            data-lane="upper-right"
+            aria-label="Справа сверху"
+            aria-keyshortcuts="O"
+          >
+            <kbd>O</kbd><span aria-hidden="true">↑</span>
+          </button>
+          <button
+            type="button"
+            data-lane="lower-left"
+            aria-label="Слева снизу"
+            aria-keyshortcuts="A"
+          >
+            <kbd>A</kbd><span aria-hidden="true">↓</span>
+          </button>
+          <button
+            type="button"
+            data-lane="lower-right"
+            aria-label="Справа снизу"
+            aria-keyshortcuts="L"
+          >
+            <kbd>L</kbd><span aria-hidden="true">↓</span>
+          </button>
+        </div>
+      </section>
+      <section class="overlay" id="paused" hidden aria-labelledby="pause-title">
+        <h1 id="pause-title">Пауза</h1>
+        <button id="resume" type="button">Продолжить</button>
+      </section>
+      <section class="overlay" id="rotate" hidden>
+        <h1>Поверните телефон</h1>
+        <p>Для игры нужен горизонтальный экран.</p>
+      </section>
     </main>
   </body>
 </html>
