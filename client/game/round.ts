@@ -9,6 +9,15 @@ export class Round {
   state: "ready" | "playing" | "paused" | "lost" = "ready";
   caught = 0;
   missed = 0;
+  score = 0;
+  streak = 0;
+
+  get multiplier() {
+    if (this.streak >= 20) return 3;
+    if (this.streak >= 10) return 2;
+    return 1;
+  }
+
   private elapsed = 0;
   private defeatAt = Infinity;
   private sequence: ReturnType<typeof bananaSequence>;
@@ -29,6 +38,7 @@ export class Round {
 
   start() {
     this.elapsed = this.caught = this.missed = 0;
+    this.score = this.streak = 0;
     this.defeatAt = Infinity;
     this.sequence = bananaSequence(this.random);
     this.pending = this.sequence.next().value;
@@ -45,12 +55,14 @@ export class Round {
   }
 
   catchBanana(lane: Lane) {
-    if (this.state !== "playing") return;
+    if (this.state !== "playing" || this.missed >= missLimit) return;
     const index = this.active.findIndex(
       (banana) => banana.lane === lane && this.elapsed < banana.deadline,
     );
     if (index < 0) return;
     this.active.splice(index, 1);
+    this.score += 10 * this.multiplier;
+    this.streak++;
     this.caught++;
   }
 
@@ -68,6 +80,7 @@ export class Round {
       const landing = deadline + fallTime;
       if (this.elapsed < landing && landing <= end) {
         this.missed++;
+        this.streak = 0;
         if (this.missed === missLimit) {
           this.defeatAt = landing + floorTime;
           end = Math.min(end, this.defeatAt);

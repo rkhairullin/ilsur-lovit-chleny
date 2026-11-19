@@ -24,6 +24,10 @@ const start = document.querySelector<HTMLButtonElement>("#start")!;
 const restart = document.querySelector<HTMLButtonElement>("#restart")!;
 const caught = document.querySelector<HTMLElement>("#caught")!;
 const misses = document.querySelector<HTMLElement>("#misses")!;
+const score = document.querySelector<HTMLElement>("#score")!;
+const streak = document.querySelector<HTMLElement>("#streak")!;
+const multiplier = document.querySelector<HTMLElement>("#multiplier")!;
+const finalScore = document.querySelector<HTMLElement>("#final-score")!;
 let previousTime = 0;
 let framePending = false;
 
@@ -37,6 +41,9 @@ function render() {
 
   game.dataset.state = round.state;
   caught.textContent = String(round.caught);
+  score.textContent = finalScore.textContent = String(round.score);
+  streak.textContent = String(round.streak);
+  multiplier.textContent = `×${round.multiplier}`;
   misses.textContent = `${round.missed} / ${missLimit}`;
 
   const needsRotation = portraitPhone.matches;
