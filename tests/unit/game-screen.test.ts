@@ -217,14 +217,14 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(frames).toHaveLength(0);
   expect(el("#misses").textContent).toBe("0 / 6");
   fire(el("#resume"), "click");
-  advance(1470);
+  advance(2270);
   const dropY = 160 + (518 - 160) * 0.5 ** 2;
   expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, dropY);
   expect(el("#misses").textContent).toBe("0 / 6");
   advance(170);
   expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, 518);
   expect(el("#misses").textContent).toBe("1 / 6");
-  advance(9200);
+  advance(15000);
   expect(game.dataset.state).toBe("lost");
   expect(el("#restart").focus).toHaveBeenCalled();
   expect(frames).toHaveLength(0);
@@ -234,4 +234,32 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(el("#misses").textContent).toBe("0 / 6");
   expect(el("#caught").textContent).toBe("0");
   expect(frames).toHaveLength(1);
+});
+
+test("holding a key and its auto-repeat cannot catch a second banana from the same cannon", async () => {
+  vi.stubGlobal("Math", Object.create(Math, { random: { value: () => 0 } }));
+  const { el, play, advance, window, lane } = await mount();
+  play();
+  fire(window, "keydown", { code: "KeyQ" });
+  advance(500);
+  expect(el("#caught").textContent).toBe("0");
+  fire(window, "keyup", { code: "KeyQ" });
+
+  const keys = ["KeyQ", "KeyA", "KeyO", "KeyL"];
+  for (let index = 0; index < 16; index++) {
+    if (index > 0) advance(2800);
+    const code = keys[index % 4];
+    fire(window, "keydown", { code });
+    fire(window, "keyup", { code });
+  }
+  advance(4000);
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#caught").textContent).toBe("17");
+  advance(100);
+  fire(window, "keydown", { code: "KeyQ", repeat: true });
+  expect(el("#caught").textContent).toBe("17");
+  fire(window, "keyup", { code: "KeyQ" });
+  fire(lane, "pointerdown", { button: 0, pointerId: 8 });
+  fire(lane, "pointerup", { button: 0, pointerId: 8 });
+  expect(el("#caught").textContent).toBe("18");
 });

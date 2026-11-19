@@ -220,7 +220,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
   await expect(game).toHaveAttribute("data-state", "playing");
   await expect(page.locator("#misses")).toHaveText("0 / 6");
   await expect(page.locator("#caught")).toHaveText("0");
-  await tick(2139);
+  await tick(2939);
   await expect(page.locator("#misses")).toHaveText("0 / 6");
   await tick(1);
   await expect(page.locator("#misses")).toHaveText("1 / 6");
@@ -234,13 +234,67 @@ test("@visual start, banana in flight and defeat", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Начать игру" })).toBeVisible();
   await expect.soft(page).toHaveScreenshot("round-ready.png");
   await page.getByRole("button", { name: "Начать игру" }).click();
-  await page.clock.fastForward(1100);
+  await page.clock.fastForward(1469);
   await expect.soft(page).toHaveScreenshot("round-flight.png");
-  await page.clock.fastForward(870);
+  await page.clock.fastForward(1301);
   await expect.soft(page).toHaveScreenshot("round-fall.png");
   await page.clock.fastForward(15000);
   await expect(
     page.getByRole("button", { name: "Играть снова" }),
   ).toBeFocused();
   await expect.soft(page).toHaveScreenshot("round-lost.png");
+});
+
+test("@visual draws overlapping flights and catches either lane independently", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let draw = 0;
+    Math.random = () => (draw++ % 2 === 0 ? 0 : 0.99);
+    const { clearRect, fillText } = CanvasRenderingContext2D.prototype;
+    CanvasRenderingContext2D.prototype.clearRect = function (
+      x,
+      y,
+      width,
+      height,
+    ) {
+      this.canvas.dataset.bananas = "0";
+      clearRect.call(this, x, y, width, height);
+    };
+    CanvasRenderingContext2D.prototype.fillText = function (
+      text,
+      x,
+      y,
+      maxWidth,
+    ) {
+      if (text === "🍌") {
+        this.canvas.dataset.bananas = String(
+          Number(this.canvas.dataset.bananas) + 1,
+        );
+      }
+      fillText.call(this, text, x, y, maxWidth);
+    };
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Начать игру" }).click();
+  const canvas = page.locator("canvas");
+  const keys = ["q", "a", "o", "l"];
+  for (let index = 0; index < 16; index++) {
+    await page.clock.fastForward(index === 0 ? 600 : 2800);
+    await expect(canvas).toHaveAttribute("data-bananas", "1");
+    await page.keyboard.press(keys[index % 4]!);
+  }
+  await expect(page.locator("#caught")).toHaveText("16");
+  await page.clock.fastForward(4000);
+  await expect(canvas).toHaveAttribute("data-bananas", "2");
+  await expect.soft(page).toHaveScreenshot("round-overlapping-flights.png");
+  await page.keyboard.press("l");
+  await expect(canvas).toHaveAttribute("data-bananas", "1");
+  await page.keyboard.press("q");
+  await expect(canvas).toHaveAttribute("data-bananas", "0");
+  await expect(page.locator("#caught")).toHaveText("18");
+  await expect(page.locator("#misses")).toHaveText("0 / 6");
 });

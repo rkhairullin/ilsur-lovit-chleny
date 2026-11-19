@@ -20,7 +20,7 @@ const ends = [
 export function drawScene(
   ctx: CanvasRenderingContext2D,
   lane: Lane | undefined,
-  banana: Round["banana"],
+  bananas: Round["bananas"],
 ) {
   ctx.clearRect(0, 0, 1200, 540);
   for (const [index, end] of ends.entries()) {
@@ -49,7 +49,7 @@ export function drawScene(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("🐓", position.x, position.y);
-  if (banana) {
+  for (const banana of bananas) {
     const index = lanes.indexOf(banana.lane);
     const end = ends[index]!;
     const { x, y } = starts[index]!;
