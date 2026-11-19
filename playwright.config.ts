@@ -12,7 +12,10 @@ export default defineConfig({
     { name: "webkit", use: { browserName: "webkit" } },
   ],
   webServer: {
-    command: "npm run build && npm start",
+    command:
+      process.env.PLAYWRIGHT_SKIP_BUILD === "1"
+        ? "npm start"
+        : "npm run build && npm start",
     url: "http://127.0.0.1:3000/api/health",
     reuseExistingServer: false,
     env: { HOST: "127.0.0.1", PORT: "3000" },

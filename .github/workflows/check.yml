@@ -16,9 +16,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
       - run: npm run format:check
-      - run: npm run check
+      - run: npm run build
+      - run: npm test
+      - name: Run browser tests in Playwright container
+        run: |
+          version="$(node -p 'require("@playwright/test/package.json").version')"
+          docker run --rm --init --ipc=host \
+            --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/work" --workdir /work \
+            --env HOME=/tmp --env CI=true --env PLAYWRIGHT_SKIP_BUILD=1 \
+            "mcr.microsoft.com/playwright:v${version}-noble" npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
