@@ -13,8 +13,14 @@ class ElementStub extends EventTarget {
   }
 }
 
-async function mount(options: { portrait?: boolean; canvas?: boolean } = {}) {
+async function mount(
+  options: { portrait?: boolean; canvas?: boolean; random?: () => number } = {},
+) {
   vi.resetModules();
+  vi.stubGlobal(
+    "Math",
+    Object.create(Math, { random: { value: options.random ?? (() => 0) } }),
+  );
   const elements = new Map(
     [
       ".game",
@@ -217,14 +223,14 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(frames).toHaveLength(0);
   expect(el("#misses").textContent).toBe("0 / 6");
   fire(el("#resume"), "click");
-  advance(1470);
+  advance(2270);
   const dropY = 160 + (518 - 160) * 0.5 ** 2;
   expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, dropY);
   expect(el("#misses").textContent).toBe("0 / 6");
   advance(170);
   expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, 518);
   expect(el("#misses").textContent).toBe("1 / 6");
-  advance(9200);
+  advance(15000);
   expect(game.dataset.state).toBe("lost");
   expect(el("#restart").focus).toHaveBeenCalled();
   expect(frames).toHaveLength(0);
@@ -234,4 +240,49 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(el("#misses").textContent).toBe("0 / 6");
   expect(el("#caught").textContent).toBe("0");
   expect(frames).toHaveLength(1);
+});
+
+test("holding a key, auto-repeat and duplicate keydown cannot catch a second banana", async () => {
+  const { el, play, advance, window, lane } = await mount();
+  play();
+  fire(window, "keydown", { code: "KeyQ" });
+  advance(500);
+  expect(el("#caught").textContent).toBe("0");
+  fire(window, "keyup", { code: "KeyQ" });
+
+  for (let index = 0; index < 16; index++) {
+    if (index > 0) advance(2800);
+    fire(window, "keydown", { code: "KeyQ" });
+    fire(window, "keyup", { code: "KeyQ" });
+  }
+  advance(4000);
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#caught").textContent).toBe("17");
+  advance(100);
+  fire(window, "keydown", { code: "KeyQ", repeat: true });
+  expect(el("#caught").textContent).toBe("17");
+  fire(window, "keydown", { code: "KeyQ", repeat: false });
+  expect(el("#caught").textContent).toBe("17");
+  fire(window, "keyup", { code: "KeyQ" });
+  fire(lane, "pointerdown", { button: 0, pointerId: 8 });
+  fire(lane, "pointerup", { button: 0, pointerId: 8 });
+  expect(el("#caught").textContent).toBe("18");
+});
+
+test("a new round draws its first lane, even after a restart", async () => {
+  let value = 0.99;
+  const { el, play, advance, window } = await mount({ random: () => value });
+  play();
+  advance(500);
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#caught").textContent).toBe("0");
+  fire(window, "keyup", { code: "KeyQ" });
+  fire(window, "keydown", { code: "KeyL" });
+  expect(el("#caught").textContent).toBe("1");
+  advance(20_000);
+  value = 0.3;
+  fire(el("#restart"), "click");
+  advance(500);
+  fire(window, "keydown", { code: "KeyA" });
+  expect(el("#caught").textContent).toBe("1");
 });

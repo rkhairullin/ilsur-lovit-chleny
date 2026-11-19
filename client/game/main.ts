@@ -33,8 +33,7 @@ function render() {
   for (const button of controls) {
     button.setAttribute("aria-pressed", String(button.dataset.lane === lane));
   }
-  if (ctx)
-    drawScene(ctx, lane, round.state === "lost" ? undefined : round.banana);
+  if (ctx) drawScene(ctx, lane, round.state === "lost" ? [] : round.bananas);
 
   game.dataset.state = round.state;
   caught.textContent = String(round.caught);
@@ -51,7 +50,7 @@ function render() {
 function update() {
   if (round.state !== "playing") return;
   const now = performance.now();
-  round.advance(now - previousTime, input.lane);
+  round.advance(now - previousTime);
   previousTime = now;
   if (gameHasEnded()) {
     input.pause();
@@ -92,8 +91,7 @@ function continuePlay() {
 
 function press(source: string, lane: Lane) {
   update();
-  input.press(source, lane);
-  round.advance(0, input.lane);
+  if (input.press(source, lane)) round.catchBanana(lane);
   render();
 }
 

@@ -26,7 +26,9 @@ export class GameInput {
   }
 
   press(source: string, lane: Lane) {
-    if (!this.paused && !this.held.has(source)) this.held.set(source, lane);
+    if (this.paused || this.held.has(source)) return false;
+    this.held.set(source, lane);
+    return true;
   }
 
   release(source: string) {

@@ -1,8 +1,8 @@
-import { lanes, type Lane } from "./input.js";
+import type { Lane } from "./input.js";
+import { bananaSequence, type Banana } from "./sequence.js";
 
-const launchInterval = 1800;
-const flightTime = 1300;
 const fallTime = 340;
+const floorTime = 160;
 export const missLimit = 6;
 
 export class Round {
@@ -10,28 +10,29 @@ export class Round {
   caught = 0;
   missed = 0;
   private elapsed = 0;
-  private item = 0;
+  private defeatAt = Infinity;
+  private sequence: ReturnType<typeof bananaSequence>;
+  private pending!: Banana;
+  private active: Banana[] = [];
 
-  get banana() {
-    const age = this.elapsed - this.launchTime;
-    if (age < 0) return undefined;
-    return {
-      lane: this.lane,
-      progress: Math.min(age / flightTime, 1),
-      fall: Math.max(0, Math.min((age - flightTime) / fallTime, 1)),
-    };
+  constructor(private readonly random: () => number = Math.random) {
+    this.sequence = bananaSequence(random);
   }
 
-  private get launchTime() {
-    return 500 + this.item * launchInterval;
-  }
-
-  private get lane() {
-    return lanes[this.item % lanes.length]!;
+  get bananas() {
+    return this.active.map(({ lane, launch, deadline, flight }) => ({
+      lane,
+      progress: Math.min((this.elapsed - launch) / flight, 1),
+      fall: Math.max(0, Math.min((this.elapsed - deadline) / fallTime, 1)),
+    }));
   }
 
   start() {
-    this.elapsed = this.item = this.caught = this.missed = 0;
+    this.elapsed = this.caught = this.missed = 0;
+    this.defeatAt = Infinity;
+    this.sequence = bananaSequence(this.random);
+    this.pending = this.sequence.next().value;
+    this.active = [];
     this.state = "playing";
   }
 
@@ -43,24 +44,39 @@ export class Round {
     if (this.state === "paused") this.state = "playing";
   }
 
-  advance(delta: number, lane: Lane | undefined) {
+  catchBanana(lane: Lane) {
     if (this.state !== "playing") return;
-    const end = this.elapsed + delta;
-    while (this.state === "playing") {
-      const launch = this.launchTime;
-      const fall = launch + flightTime;
-      const landing = fall + fallTime;
-      if (end >= launch && this.elapsed < fall && lane === this.lane) {
-        this.caught++;
-      } else {
-        if (end < landing) break;
-        if (this.elapsed < landing) this.missed++;
-        // Leave the banana on the floor briefly, including on the final miss.
-        if (end < launch + launchInterval) break;
-        if (this.missed === missLimit) this.state = "lost";
+    const index = this.active.findIndex(
+      (banana) => banana.lane === lane && this.elapsed < banana.deadline,
+    );
+    if (index < 0) return;
+    this.active.splice(index, 1);
+    this.caught++;
+  }
+
+  advance(delta: number) {
+    if (this.state !== "playing") return;
+    let end = Math.min(this.elapsed + delta, this.defeatAt);
+    const remaining: Banana[] = [];
+    let index = 0;
+    while (index < this.active.length || this.pending.launch <= end) {
+      const banana = this.active[index] ?? this.pending;
+      if (index < this.active.length) index++;
+      else this.pending = this.sequence.next().value;
+
+      const { deadline } = banana;
+      const landing = deadline + fallTime;
+      if (this.elapsed < landing && landing <= end) {
+        this.missed++;
+        if (this.missed === missLimit) {
+          this.defeatAt = landing + floorTime;
+          end = Math.min(end, this.defeatAt);
+        }
       }
-      this.item++;
+      if (end < landing + floorTime) remaining.push(banana);
     }
+    this.active = remaining;
     this.elapsed = end;
+    if (end === this.defeatAt) this.state = "lost";
   }
 }
