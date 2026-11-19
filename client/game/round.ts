@@ -12,12 +12,11 @@ export class Round {
   private elapsed = 0;
   private defeatAt = Infinity;
   private sequence: ReturnType<typeof bananaSequence>;
-  private pending: Banana;
+  private pending!: Banana;
   private active: Banana[] = [];
 
   constructor(private readonly random: () => number = Math.random) {
     this.sequence = bananaSequence(random);
-    this.pending = this.sequence.next().value;
   }
 
   get bananas() {

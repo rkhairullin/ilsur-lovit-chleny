@@ -170,6 +170,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
   page,
 }) => {
   await page.addInitScript(() => {
+    Math.random = () => 0;
     let now = 0;
     let callbacks: FrameRequestCallback[] = [];
     let hidden = false;
@@ -227,6 +228,9 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
 });
 
 test("@visual start, banana in flight and defeat", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
@@ -250,7 +254,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
 }) => {
   await page.addInitScript(() => {
     let draw = 0;
-    Math.random = () => (draw++ % 2 === 0 ? 0 : 0.99);
+    Math.random = () => (draw++ === 17 ? 0.99 : 0);
     const { clearRect, fillText } = CanvasRenderingContext2D.prototype;
     CanvasRenderingContext2D.prototype.clearRect = function (
       x,
@@ -281,11 +285,10 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await page.goto("/");
   await page.getByRole("button", { name: "Начать игру" }).click();
   const canvas = page.locator("canvas");
-  const keys = ["q", "a", "o", "l"];
   for (let index = 0; index < 16; index++) {
     await page.clock.fastForward(index === 0 ? 600 : 2800);
     await expect(canvas).toHaveAttribute("data-bananas", "1");
-    await page.keyboard.press(keys[index % 4]!);
+    await page.keyboard.press("q");
   }
   await expect(page.locator("#caught")).toHaveText("16");
   await page.clock.fastForward(4000);

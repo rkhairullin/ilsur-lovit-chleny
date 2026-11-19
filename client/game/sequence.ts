@@ -26,16 +26,11 @@ export function* bananaSequence(
   random: () => number,
 ): Generator<Banana, never> {
   let launch = 500;
-  let index = 0;
   while (true) {
     const { interval, flight } = stageAt(launch);
-    const laneIndex =
-      launch < stageDuration
-        ? index % lanes.length
-        : Math.floor(random() * lanes.length);
+    const laneIndex = Math.floor(random() * lanes.length);
     const deadline = launch + flight;
     yield { launch, deadline, flight, lane: lanes[laneIndex]! };
-    index++;
     const nextLaunch = launch + interval;
     launch = Math.max(
       nextLaunch,

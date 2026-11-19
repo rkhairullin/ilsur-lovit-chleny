@@ -13,8 +13,14 @@ class ElementStub extends EventTarget {
   }
 }
 
-async function mount(options: { portrait?: boolean; canvas?: boolean } = {}) {
+async function mount(
+  options: { portrait?: boolean; canvas?: boolean; random?: () => number } = {},
+) {
   vi.resetModules();
+  vi.stubGlobal(
+    "Math",
+    Object.create(Math, { random: { value: options.random ?? (() => 0) } }),
+  );
   const elements = new Map(
     [
       ".game",
@@ -237,7 +243,6 @@ test("the animation loop survives pause and restart with only one pending frame"
 });
 
 test("holding a key and its auto-repeat cannot catch a second banana from the same cannon", async () => {
-  vi.stubGlobal("Math", Object.create(Math, { random: { value: () => 0 } }));
   const { el, play, advance, window, lane } = await mount();
   play();
   fire(window, "keydown", { code: "KeyQ" });
@@ -245,12 +250,10 @@ test("holding a key and its auto-repeat cannot catch a second banana from the sa
   expect(el("#caught").textContent).toBe("0");
   fire(window, "keyup", { code: "KeyQ" });
 
-  const keys = ["KeyQ", "KeyA", "KeyO", "KeyL"];
   for (let index = 0; index < 16; index++) {
     if (index > 0) advance(2800);
-    const code = keys[index % 4];
-    fire(window, "keydown", { code });
-    fire(window, "keyup", { code });
+    fire(window, "keydown", { code: "KeyQ" });
+    fire(window, "keyup", { code: "KeyQ" });
   }
   advance(4000);
   fire(window, "keydown", { code: "KeyQ" });
@@ -262,4 +265,22 @@ test("holding a key and its auto-repeat cannot catch a second banana from the sa
   fire(lane, "pointerdown", { button: 0, pointerId: 8 });
   fire(lane, "pointerup", { button: 0, pointerId: 8 });
   expect(el("#caught").textContent).toBe("18");
+});
+
+test("a new round draws its first lane, even after a restart", async () => {
+  let value = 0.99;
+  const { el, play, advance, window } = await mount({ random: () => value });
+  play();
+  advance(500);
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#caught").textContent).toBe("0");
+  fire(window, "keyup", { code: "KeyQ" });
+  fire(window, "keydown", { code: "KeyL" });
+  expect(el("#caught").textContent).toBe("1");
+  advance(20_000);
+  value = 0.3;
+  fire(el("#restart"), "click");
+  advance(500);
+  fire(window, "keydown", { code: "KeyA" });
+  expect(el("#caught").textContent).toBe("1");
 });

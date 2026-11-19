@@ -3,7 +3,7 @@ import { Round } from "../../client/game/round.js";
 import { bananaSequence } from "../../client/game/sequence.js";
 
 test("switching to the correct lane catches the banana immediately during flight", () => {
-  const round = new Round();
+  const round = new Round(() => 0);
   round.catchBanana("upper-left");
   expect(round.bananas[0]).toBeUndefined();
   round.start();
@@ -27,7 +27,8 @@ test("switching to the correct lane catches the banana immediately during flight
 });
 
 test("a banana falls to the floor, counts once at impact and cannot be caught while falling", () => {
-  const round = new Round();
+  const draws = [0, 0.25];
+  const round = new Round(() => draws.shift() ?? 0);
   round.start();
   round.advance(2600);
   round.advance(170);
@@ -57,7 +58,7 @@ test("a banana falls to the floor, counts once at impact and cannot be caught wh
 });
 
 test("a long frame accounts for misses once and stops on the sixth", () => {
-  const round = new Round();
+  const round = new Round(() => 0);
   round.resume();
   expect(round.state).toBe("ready");
   round.start();
@@ -74,7 +75,7 @@ test("a long frame accounts for misses once and stops on the sixth", () => {
 });
 
 test("paused time does not advance launch or catch windows", () => {
-  const round = new Round();
+  const round = new Round(() => 0);
   round.start();
   round.advance(1000);
   const banana = round.bananas[0];
@@ -88,18 +89,12 @@ test("paused time does not advance launch or catch windows", () => {
 });
 
 test("overlapping flights can be caught independently and fall only once", () => {
-  let draw = 0;
-  const round = new Round(() => (draw++ % 2 === 0 ? 0 : 0.99));
+  const draws = [...Array<number>(17).fill(0), 0.99];
+  const round = new Round(() => draws.shift() ?? 0);
   round.start();
-  const intro = [
-    "upper-left",
-    "lower-left",
-    "upper-right",
-    "lower-right",
-  ] as const;
   for (let index = 0; index < 16; index++) {
     round.advance(index === 0 ? 500 : 2800);
-    round.catchBanana(intro[index % 4]!);
+    round.catchBanana("upper-left");
   }
   round.advance(4000);
   expect(round.bananas.map(({ lane }) => lane)).toEqual([

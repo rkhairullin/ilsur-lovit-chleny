@@ -33,10 +33,7 @@ test("seeded runs vary lanes and leave a feasible 400 ms switching schedule", ()
   expect(sample(7, 500)).not.toEqual(sample(8, 500));
   for (let seed = 0; seed < 40; seed++) {
     const items = sample(seed, 2000);
-    expect(items.slice(0, 4).map((item) => item.lane)).toEqual(lanes);
-    expect(new Set(items.slice(16).map((item) => item.lane))).toEqual(
-      new Set(lanes),
-    );
+    expect(new Set(items.map((item) => item.lane))).toEqual(new Set(lanes));
     for (let index = 1; index < items.length; index++) {
       // One millisecond before each deadline is still in the catch window.
       const catchAt = items[index]!.deadline - 1;
@@ -47,5 +44,13 @@ test("seeded runs vary lanes and leave a feasible 400 ms switching schedule", ()
         throw new Error(`Impossible catch for seed ${seed}, banana ${index}`);
       }
     }
+  }
+});
+
+test("the first banana can use any lane and the next can repeat it", () => {
+  for (const [index, lane] of lanes.entries()) {
+    const sequence = bananaSequence(() => (index + 0.5) / lanes.length);
+    expect(sequence.next().value.lane).toBe(lane);
+    expect(sequence.next().value.lane).toBe(lane);
   }
 });
