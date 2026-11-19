@@ -19,14 +19,20 @@ jobs:
       - run: npm run format:check
       - run: npm run build
       - run: npm test
-      - name: Run browser tests in Playwright container
-        run: |
-          version="$(node -p 'require("@playwright/test/package.json").version')"
-          docker run --rm --init --ipc=host \
-            --user "$(id -u):$(id -g)" \
-            --volume "$PWD:/work" --workdir /work \
-            --env HOME=/tmp --env CI=true --env PLAYWRIGHT_SKIP_BUILD=1 \
-            "mcr.microsoft.com/playwright:v${version}-noble" npm run test:e2e
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-chromium-webkit-${{ hashFiles('package-lock.json') }}
+      - name: Install browser system dependencies
+        run: npx playwright install-deps chromium webkit
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium webkit
+      - run: npm run test:e2e
+        env:
+          PLAYWRIGHT_SKIP_BUILD: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
