@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { renderCatalog } from "./catalog.js";
 
 export type LoginOptions = {
   password: string;
@@ -15,7 +16,18 @@ const sessionDuration = 7 * 24 * 60 * 60;
 const attemptWindow = 60_000;
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
-function loginPage(reply: FastifyReply, status = 200, message = "") {
+const gamePath = "/ilsur-lovit-chleny/";
+
+function safeReturnTo(value: unknown) {
+  return value === gamePath ? gamePath : "/";
+}
+
+function loginPage(
+  reply: FastifyReply,
+  status = 200,
+  message = "",
+  returnTo = "/",
+) {
   return reply.status(status).type("text/html; charset=utf-8")
     .send(`<!doctype html>
 <html lang="ru">
@@ -33,6 +45,7 @@ function loginPage(reply: FastifyReply, status = 200, message = "") {
 <div class="login-panel">
 ${message ? `<p role="alert">${message}</p>` : ""}
 <form method="post" action="/login">
+<input type="hidden" name="returnTo" value="${returnTo}">
 <label>Имя свое скажи, если ты мущщщщина <input name="nickname" autocomplete="username" required maxlength="32"></label>
 <label>Пароль (знают все четкие пацаны) <input name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
 <button>Начать петушить</button>
@@ -111,6 +124,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
       path === "/logout" ||
       path === "/" ||
       path === "/index.html" ||
+      path === gamePath ||
       api
     ) {
       reply.header("Cache-Control", "no-store");
@@ -127,10 +141,20 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
     }
   });
 
-  async function game(request: FastifyRequest, reply: FastifyReply) {
+  async function catalog(request: FastifyRequest, reply: FastifyReply) {
     const player = findSession.get(sessionHash(request), Date.now()) as
       { nickname: string } | undefined;
     if (!player) return reply.redirect("/login");
+    return reply
+      .type("text/html; charset=utf-8")
+      .send(renderCatalog(player.nickname));
+  }
+
+  async function game(request: FastifyRequest, reply: FastifyReply) {
+    const player = findSession.get(sessionHash(request), Date.now()) as
+      { nickname: string } | undefined;
+    if (!player)
+      return reply.redirect(`/login?returnTo=${encodeURIComponent(gamePath)}`);
     const template = await readFile(
       new URL("../client/index.html", import.meta.url),
       "utf8",
@@ -143,13 +167,16 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
       .type("text/html; charset=utf-8")
       .send(template.replace("<!-- player nickname -->", () => nickname));
   }
-  app.get("/", game);
-  app.get("/index.html", game);
-  app.get("/login", async (request, reply) =>
-    findSession.get(sessionHash(request), Date.now())
-      ? reply.redirect("/")
-      : loginPage(reply),
-  );
+  app.get("/", catalog);
+  app.get("/index.html", catalog);
+  app.get(gamePath, game);
+  app.get("/login", async (request, reply) => {
+    const query = request.query as { returnTo?: string };
+    const returnTo = safeReturnTo(query.returnTo);
+    return findSession.get(sessionHash(request), Date.now())
+      ? reply.redirect(returnTo)
+      : loginPage(reply, 200, "", returnTo);
+  });
   app.post("/login", async (request, reply) => {
     const now = Date.now();
     if (now >= resetAt) {
@@ -159,9 +186,21 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
     const failed = failures.get(request.ip) ?? 0;
     if (failed >= 10) {
       reply.header("Retry-After", String(Math.ceil((resetAt - now) / 1000)));
-      return loginPage(reply, 429, "Слишком много попыток. Попробуйте позже.");
+      const form = request.body;
+      const returnTo = safeReturnTo(
+        form instanceof URLSearchParams ? form.get("returnTo") : undefined,
+      );
+      return loginPage(
+        reply,
+        429,
+        "Слишком много попыток. Попробуйте позже.",
+        returnTo,
+      );
     }
     const form = request.body;
+    const returnTo = safeReturnTo(
+      form instanceof URLSearchParams ? form.get("returnTo") : undefined,
+    );
     const nickname =
       form instanceof URLSearchParams
         ? (form.get("nickname") ?? "").trim().normalize("NFC")
@@ -179,11 +218,12 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
         reply,
         400,
         "Введите ник длиной до 32 символов и общий пароль.",
+        returnTo,
       );
     }
     if (!timingSafeEqual(digest(password), expectedPassword)) {
       failures.set(request.ip, failed + 1);
-      return loginPage(reply, 401, "Неверный пароль, натурал чертов");
+      return loginPage(reply, 401, "Неверный пароль, натурал чертов", returnTo);
     }
     const key = nickname.toLowerCase().normalize("NFC");
     savePlayer.run(nickname, key);
@@ -201,7 +241,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
         "Set-Cookie",
         `${cookie}${token}${cookieFlags}; Max-Age=${sessionDuration}`,
       )
-      .redirect("/", 303);
+      .redirect(returnTo, 303);
   });
   app.get("/api/session", async (request) =>
     findSession.get(sessionHash(request), Date.now()),

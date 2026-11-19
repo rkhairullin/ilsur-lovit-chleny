@@ -1,0 +1,66 @@
+import { expect, test, type Page } from "@playwright/test";
+
+async function openCatalog(page: Page) {
+  await page.request.post("/login", {
+    form: { nickname: "Игрок каталога", password: "browser-test-password" },
+  });
+  await page.goto("/");
+}
+
+for (const [name, selector] of [
+  ["preview image", "Открыть игру Ильсур ловит члены"],
+  ["Play button", "Начать петушить"],
+] as const) {
+  test(`catalog ${name} opens the game in the same session`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openCatalog(page);
+    await page.getByRole("link", { name: selector }).click();
+    await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/$/);
+    await expect(
+      page.getByRole("button", { name: "Начать игру" }),
+    ).toBeVisible();
+    expect(await (await page.request.get("/api/session")).json()).toMatchObject(
+      {
+        nickname: "Игрок каталога",
+      },
+    );
+  });
+}
+
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 844, height: 390 },
+  { width: 390, height: 844 },
+]) {
+  test(`@visual catalog ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await openCatalog(page);
+    await expect(
+      page.getByRole("heading", { name: "Ильсур - пИтух" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Игры, где можно отпетушить Ильсура",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("img", {
+        name: "Скриншот игрового экрана во время полёта банана",
+      }),
+    ).toHaveJSProperty("naturalWidth", 1200);
+    await expect(page.getByText("Рейтинг скоро появится")).toBeVisible();
+    expect(
+      await page.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.documentElement.clientWidth,
+      ]),
+    ).toEqual([viewport.width, viewport.width]);
+    await expect(page).toHaveScreenshot(
+      `catalog-${viewport.width}x${viewport.height}.png`,
+    );
+  });
+}

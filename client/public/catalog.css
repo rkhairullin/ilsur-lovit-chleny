@@ -1,0 +1,357 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  color: #fff8ff;
+  background: #10071d;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(ellipse at 7% 17%, #f000874b, transparent 32rem),
+    radial-gradient(ellipse at 93% 22%, #5360ff48, transparent 34rem),
+    radial-gradient(ellipse at 48% 100%, #05e6a02a, transparent 40rem), #10071d;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.catalog {
+  width: min(100% - 2rem, 76rem);
+  margin-inline: auto;
+  padding: clamp(1.25rem, 4vw, 3.5rem) 0 3rem;
+}
+
+.catalog-header,
+.catalog-account,
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.catalog-header {
+  padding-bottom: clamp(1.4rem, 4vw, 2.8rem);
+  border-bottom: 1px solid #ffffff27;
+}
+
+.catalog-kicker {
+  margin: 0 0 0.5rem;
+  color: #ff92d5;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.2em;
+}
+
+.catalog-brand h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.4rem);
+  font-weight: 950;
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+  text-shadow: 0 0 2rem #ff38bd72;
+}
+
+.catalog-account {
+  flex-shrink: 0;
+}
+
+.catalog-account p {
+  margin: 0;
+  color: #e8d7f4;
+}
+
+.catalog-account b {
+  color: #fff;
+}
+
+.logout-button {
+  min-height: 2.75rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid #ffffff40;
+  border-radius: 999px;
+  background: #ffffff0a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: #ffffff18;
+}
+
+.catalog-library {
+  padding-top: clamp(1.8rem, 5vw, 3.8rem);
+}
+
+.section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: clamp(1.55rem, 4vw, 2.5rem);
+  letter-spacing: -0.035em;
+}
+
+.library-count {
+  margin: 0;
+  color: #f4dbff;
+  font-size: 1.45rem;
+  font-weight: 850;
+}
+
+.library-count span {
+  color: #a88eb6;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 64rem);
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.game-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.85fr);
+  align-items: stretch;
+  overflow: hidden;
+  padding: 1px;
+  border-radius: 1.3rem;
+  background: linear-gradient(
+    130deg,
+    #ff48bd,
+    #9e54ff 44%,
+    #39e8dc 78%,
+    #ffe35d
+  );
+  box-shadow: 0 1.5rem 4rem #05020a8a;
+}
+
+.game-card__preview {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  min-height: 20rem;
+  border-radius: 1.25rem 0.25rem 0.25rem 1.25rem;
+  background: #1b102a;
+}
+
+.game-card__preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 180ms ease;
+}
+
+.game-card__preview:hover img {
+  transform: scale(1.025);
+}
+
+.game-card__play-indicator {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  display: grid;
+  width: 3rem;
+  aspect-ratio: 1;
+  place-items: center;
+  padding-left: 0.15rem;
+  border: 1px solid #ffffffa8;
+  border-radius: 50%;
+  background: #f517a9e8;
+  box-shadow: 0 0 1.5rem #ff39c5aa;
+}
+
+.game-card__body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: clamp(1rem, 3vw, 1.65rem);
+  border-radius: 0.25rem 1.25rem 1.25rem 0.25rem;
+  background: linear-gradient(150deg, #21142f, #150c23 70%);
+}
+
+.game-card__eyebrow {
+  margin: 0 0 0.4rem;
+  color: #aee7ff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.game-card h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 3vw, 1.75rem);
+}
+
+.game-card__description {
+  min-height: 4.5em;
+  margin: 0.7rem 0 1rem;
+  color: #d9c9e6;
+  line-height: 1.55;
+}
+
+.game-card__rating {
+  margin: 0 0 1rem;
+  color: #ffe27c;
+  font-size: 0.93rem;
+  font-weight: 750;
+}
+
+.catalog-button {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  background: linear-gradient(105deg, #fc3cac, #9759ff 54%, #36d9db);
+  color: #fff;
+  font-weight: 900;
+  text-decoration: none;
+  text-shadow: 0 1px 2px #280c3e80;
+  box-shadow: 0 0.6rem 1.6rem #e832ad39;
+}
+
+.catalog-button:hover {
+  filter: brightness(1.12);
+}
+
+@media (max-width: 42rem) {
+  .game-card {
+    display: block;
+  }
+
+  .game-card__preview {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    border-radius: 1.25rem 1.25rem 0.25rem 0.25rem;
+  }
+
+  .game-card__body {
+    border-radius: 0.25rem 0.25rem 1.25rem 1.25rem;
+  }
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid #ffe77a;
+  outline-offset: 3px;
+}
+
+@media (max-width: 40rem) {
+  .catalog {
+    width: min(100% - 1.25rem, 34rem);
+    padding-top: 1.1rem;
+  }
+
+  .catalog-header {
+    align-items: flex-start;
+  }
+
+  .catalog-account {
+    display: grid;
+    justify-items: end;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .catalog-account p {
+    max-width: 10rem;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .section-heading {
+    margin-bottom: 0.9rem;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 30rem) and (max-width: 60rem) {
+  .catalog {
+    padding-block: 0.55rem 1rem;
+  }
+
+  .catalog-header {
+    padding-bottom: 0.55rem;
+  }
+
+  .catalog-kicker {
+    margin-bottom: 0.2rem;
+    font-size: 0.58rem;
+  }
+
+  .catalog-brand h1 {
+    font-size: clamp(1.8rem, 8vh, 2.6rem);
+  }
+
+  .catalog-library {
+    padding-top: 0.65rem;
+  }
+
+  .section-heading {
+    margin-bottom: 0.5rem;
+  }
+
+  .section-heading h2 {
+    font-size: 1.4rem;
+  }
+
+  .game-card__preview {
+    min-height: 10.5rem;
+  }
+
+  .game-card__body {
+    padding: 0.65rem 0.9rem;
+  }
+
+  .game-card__eyebrow {
+    font-size: 0.58rem;
+  }
+
+  .game-card h2 {
+    font-size: 1.22rem;
+  }
+
+  .game-card__description {
+    min-height: 0;
+    margin: 0.35rem 0 0.5rem;
+    font-size: 0.84rem;
+    line-height: 1.3;
+  }
+
+  .game-card__rating {
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .catalog-button {
+    min-height: 2.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

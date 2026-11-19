@@ -40,6 +40,9 @@ test("gates the game, alternate paths and private API", async () => {
   for (const url of ["/", "/index.html"]) {
     expect((await app.inject(url)).headers.location).toBe("/login");
   }
+  expect((await app.inject("/ilsur-lovit-chleny/")).headers.location).toBe(
+    "/login?returnTo=%2Filsur-lovit-chleny%2F",
+  );
   expect((await app.inject("/%69ndex.html")).headers.location).toBe("/login");
   expect((await app.inject("/api/session")).statusCode).toBe(401);
   expect((await app.inject("/%61pi/session")).statusCode).toBe(401);
@@ -94,6 +97,9 @@ test("validates input and rate-limits incorrect passwords with recovery", async 
   const blocked = await enter(app, "Ринат");
   expect(blocked.statusCode).toBe(429);
   expect(blocked.headers["retry-after"]).toBe("60");
+  expect((await app.inject({ method: "POST", url: "/login" })).statusCode).toBe(
+    429,
+  );
   now += 60_000;
   expect((await enter(app, "Ринат")).statusCode).toBe(303);
 });
@@ -116,12 +122,28 @@ test("reuses persisted nicknames, escapes markup, rotates and revokes sessions",
     const game = await app.inject({ url: "/", headers });
     expect(game.statusCode).toBe(200);
     expect(game.headers["cache-control"]).toBe("no-store");
+    expect(game.body).toContain("Ильсур - пИтух");
     expect(game.body).toContain(
-      "&#60;B&#62;Ё &#38; &#34;&#39; $&#38;&#60;/B&#62;",
+      "&lt;B&gt;Ё &amp; &quot;&#39; $&amp;&lt;/B&gt;",
     );
+    expect(game.body).toContain('href="/ilsur-lovit-chleny/"');
+    expect(game.body).toContain("Рейтинг скоро появится");
+    const gamePage = await app.inject({ url: "/ilsur-lovit-chleny/", headers });
+    expect(gamePage.statusCode).toBe(200);
+    expect(gamePage.headers["cache-control"]).toBe("no-store");
+    expect(gamePage.body).toContain("&#60;B&#62;Ё &#38; &#34;&#39;");
+    expect(gamePage.body).toContain('href="/"');
     expect(
       (await app.inject({ url: "/login", headers })).headers.location,
     ).toBe("/");
+    expect(
+      (
+        await app.inject({
+          url: "/login?returnTo=%2Filsur-lovit-chleny%2F",
+          headers,
+        })
+      ).headers.location,
+    ).toBe("/ilsur-lovit-chleny/");
     expect(
       (await app.inject({ url: "/api/missing", headers })).statusCode,
     ).toBe(404);
@@ -176,6 +198,40 @@ test("expires a session after seven days", async () => {
   expect(
     (await app.inject({ url: "/api/session", headers: { cookie } })).statusCode,
   ).toBe(401);
+});
+
+test("a protected game visit returns to the game after login and rejects open redirects", async () => {
+  const app = makeApp();
+  const login = await app.inject("/login?returnTo=%2Filsur-lovit-chleny%2F");
+  expect(login.statusCode).toBe(200);
+  expect(login.body).toContain('name="returnTo" value="/ilsur-lovit-chleny/"');
+  const result = await app.inject({
+    method: "POST",
+    url: "/login",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    payload: new URLSearchParams({
+      nickname: "Пилот",
+      password: options.password,
+      returnTo: "/ilsur-lovit-chleny/",
+    }).toString(),
+  });
+  expect(result.statusCode).toBe(303);
+  expect(result.headers.location).toBe("/ilsur-lovit-chleny/");
+  const invalid = await app.inject(
+    "/login?returnTo=https%3A%2F%2Fevil.example",
+  );
+  expect(invalid.body).toContain('name="returnTo" value="/"');
+  const rejected = await app.inject({
+    method: "POST",
+    url: "/login",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    payload: new URLSearchParams({
+      nickname: "Пилот",
+      password: "wrong",
+      returnTo: "https://evil.example",
+    }).toString(),
+  });
+  expect(rejected.body).toContain('name="returnTo" value="/"');
 });
 
 test("requires a configured password", () => {
