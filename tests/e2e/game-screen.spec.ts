@@ -161,8 +161,28 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport);
+    const background =
+      viewport.width > viewport.height
+        ? page.waitForResponse(
+            (response) =>
+              new URL(response.url()).pathname === "/disco-floor.webp",
+          )
+        : undefined;
     await openGame(page);
-    if (viewport.width > viewport.height) {
+    if (background) {
+      expect((await background).ok()).toBe(true);
+      await expect(page.locator("#cannon-sprite")).not.toHaveJSProperty(
+        "naturalWidth",
+        0,
+      );
+      await expect(page.locator(".arena")).toHaveCSS(
+        "background-size",
+        "cover",
+      );
+      await expect(page.locator(".arena")).toHaveCSS(
+        "background-position",
+        "50% 0%",
+      );
       await page.clock.install();
       await page.clock.pauseAt(new Date(Date.now() + 1000));
       await page.getByRole("button", { name: "Начать игру" }).click();
@@ -216,6 +236,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
   await page.keyboard.down("q");
   await page.keyboard.up("q");
   await expect(page.locator("#caught")).toHaveText("1");
+  await expect(page.getByRole("status")).toHaveText("Отсосал");
   await expect(page.locator("#score")).toHaveText("10");
   await expect(page.locator("#streak")).toHaveText("1");
   await toggleHidden();
@@ -244,6 +265,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
   await expect(page.locator("#misses")).toHaveText("0 / 6");
   await tick(1);
   await expect(page.locator("#misses")).toHaveText("1 / 6");
+  await expect(page.getByRole("status")).toHaveText("Лох! Пидр!");
 });
 
 test("@visual start, banana in flight and defeat", async ({ page }) => {
@@ -274,7 +296,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await page.addInitScript(() => {
     let draw = 0;
     Math.random = () => (draw++ === 17 ? 0.99 : 0);
-    const { clearRect, fillText } = CanvasRenderingContext2D.prototype;
+    const { clearRect, drawImage } = CanvasRenderingContext2D.prototype;
     CanvasRenderingContext2D.prototype.clearRect = function (
       x,
       y,
@@ -284,18 +306,20 @@ test("@visual draws overlapping flights and catches either lane independently", 
       this.canvas.dataset.bananas = "0";
       clearRect.call(this, x, y, width, height);
     };
-    CanvasRenderingContext2D.prototype.fillText = function (
-      text,
-      x,
-      y,
-      maxWidth,
+    CanvasRenderingContext2D.prototype.drawImage = function (
+      sprite: CanvasImageSource,
+      ...coordinates: number[]
     ) {
-      if (text === "🍌") {
+      if (
+        sprite instanceof HTMLImageElement &&
+        sprite.id === "banana-sprite" &&
+        Math.max(...coordinates.slice(-2)) >= 59.99
+      ) {
         this.canvas.dataset.bananas = String(
           Number(this.canvas.dataset.bananas) + 1,
         );
       }
-      fillText.call(this, text, x, y, maxWidth);
+      Reflect.apply(drawImage, this, [sprite, ...coordinates]);
     };
   });
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -322,4 +346,106 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await expect(canvas).toHaveAttribute("data-bananas", "0");
   await expect(page.locator("#caught")).toHaveText("18");
   await expect(page.locator("#misses")).toHaveText("0 / 6");
+});
+
+test("sound preference persists and reduced motion removes reaction animation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  await page.clock.install();
+  await openGame(page);
+  const sound = page.getByRole("button", { name: "Звук" });
+  await expect(sound).toHaveAttribute("aria-pressed", "true");
+  await sound.click();
+  await page.reload();
+  await expect(sound).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Начать игру" }).click();
+  await page.clock.fastForward(1000);
+  await page.keyboard.press("q");
+  const reaction = page.getByRole("status");
+  await expect(reaction).toHaveText("Отсосал");
+  await expect(reaction).toHaveCSS("animation-name", "none");
+  await sound.click();
+  await page.reload();
+  await expect(sound).toHaveAttribute("aria-pressed", "true");
+});
+
+test("missing sprites fall back to readable symbols and the game remains playable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+    const { fillText } = CanvasRenderingContext2D.prototype;
+    CanvasRenderingContext2D.prototype.fillText = function (
+      text,
+      x,
+      y,
+      maxWidth,
+    ) {
+      this.canvas.dataset.fallback = text;
+      fillText.call(this, text, x, y, maxWidth);
+    };
+  });
+  await page.route(
+    /\/(?:(banana|login-character)\.png|disco-cannon\.webp)$/,
+    (route) => route.abort(),
+  );
+  await page.clock.install();
+  await openGame(page);
+  await page.getByRole("button", { name: "Начать игру" }).click();
+  await expect(page.locator("canvas")).toHaveAttribute("data-fallback", "🐓");
+  await page.clock.fastForward(1000);
+  await expect(page.locator("canvas")).toHaveAttribute("data-fallback", "🍌");
+  await page.keyboard.press("q");
+  await expect(page.locator("#caught")).toHaveText("1");
+});
+
+test("@visual catch and miss on a landscape phone", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    Math.random = () => 0;
+  });
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await openGame(page);
+  await page.getByRole("button", { name: "Начать игру" }).click();
+  await page.clock.fastForward(800);
+  await page.keyboard.down("q");
+  await expect(page.getByRole("status")).toHaveText("Отсосал");
+  await expect.soft(page).toHaveScreenshot("round-catch-landscape.png");
+  await page.keyboard.up("q");
+  await page.clock.fastForward(5100);
+  await expect(page.getByRole("status")).toHaveText("Лох! Пидр!");
+  await expect(page).toHaveScreenshot("round-miss-landscape.png");
+});
+
+test("a large Retina desktop keeps a wide arena and a high-resolution canvas", async ({
+  browser,
+}) => {
+  const page = await browser.newPage({
+    viewport: { width: 2048, height: 1280 },
+    deviceScaleFactor: 2,
+  });
+  try {
+    await openGame(page);
+    await page.getByRole("button", { name: "Начать игру" }).click();
+    const canvas = page.locator("canvas");
+    await expect(canvas).toHaveCSS("object-fit", "contain");
+    const dimensions = await canvas.evaluate((element: HTMLCanvasElement) => ({
+      cssRatio: element.clientWidth / element.clientHeight,
+      pixelRatio: element.width / element.height,
+      density: element.width / element.clientWidth,
+    }));
+    expect(dimensions.cssRatio).toBeCloseTo(20 / 9, 1);
+    expect(dimensions.pixelRatio).toBeCloseTo(20 / 9);
+    expect(dimensions.density).toBeCloseTo(2, 1);
+  } finally {
+    await page.close();
+  }
 });

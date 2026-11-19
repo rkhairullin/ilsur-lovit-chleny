@@ -1,6 +1,7 @@
 import { GameInput, laneForKey, type Lane } from "./input.js";
 import { Round, missLimit } from "./round.js";
 import { drawScene } from "./scene.js";
+import { GameSound, type Reaction } from "./sound.js";
 
 const game = document.querySelector<HTMLElement>(".game")!;
 const hud = document.querySelector<HTMLElement>(".hud")!;
@@ -15,6 +16,10 @@ const controls = document.querySelectorAll<HTMLButtonElement>("[data-lane]");
 const portraitPhone = matchMedia(
   "(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)",
 );
+const compactLandscape = matchMedia(
+  "(orientation: landscape) and (max-height: 500px)",
+);
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const input = new GameInput();
 input.pause();
 const round = new Round();
@@ -28,6 +33,23 @@ const score = document.querySelector<HTMLElement>("#score")!;
 const streak = document.querySelector<HTMLElement>("#streak")!;
 const multiplier = document.querySelector<HTMLElement>("#multiplier")!;
 const finalScore = document.querySelector<HTMLElement>("#final-score")!;
+const hero = document.querySelector<HTMLImageElement>("#hero-sprite")!;
+const bananaSprite =
+  document.querySelector<HTMLImageElement>("#banana-sprite")!;
+const cannonSprite =
+  document.querySelector<HTMLImageElement>("#cannon-sprite")!;
+const reaction = document.querySelector<HTMLElement>("#reaction")!;
+const soundButton = document.querySelector<HTMLButtonElement>("#sound")!;
+const sound = new GameSound(soundButton);
+const reactionText = {
+  catch: "Отсосал",
+  miss: "Лох! Пидр!",
+  defeat: "Gay over",
+};
+let lastReaction: Reaction | undefined;
+const swallowDuration = 160;
+let swallow: { lane: Lane; from: number; started: number } | undefined;
+let reactionUntil = 0;
 let previousTime = 0;
 let framePending = false;
 
@@ -37,7 +59,42 @@ function render() {
   for (const button of controls) {
     button.setAttribute("aria-pressed", String(button.dataset.lane === lane));
   }
-  if (ctx) drawScene(ctx, lane, round.state === "lost" ? [] : round.bananas);
+  const swallowProgress = swallow
+    ? (previousTime - swallow.started) / swallowDuration
+    : 1;
+  const swallowing =
+    swallow &&
+    swallowProgress < 1 &&
+    !reducedMotion.matches &&
+    (lane === undefined || lane === swallow.lane)
+      ? swallow
+      : undefined;
+  if (ctx) {
+    const unit = Math.max(
+      1,
+      Math.round(
+        Math.min(canvas.clientWidth / 20, canvas.clientHeight / 9) *
+          devicePixelRatio,
+      ),
+    );
+    if (canvas.width !== unit * 20) {
+      canvas.width = unit * 20;
+      canvas.height = unit * 9;
+    }
+    const scale = unit / 60;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    drawScene(
+      ctx,
+      swallowing?.lane ?? lane,
+      round.state === "lost" ? [] : round.bananas,
+      hero,
+      bananaSprite,
+      cannonSprite,
+      lastReaction,
+      compactLandscape.matches,
+      swallowing && { from: swallowing.from, progress: swallowProgress },
+    );
+  }
 
   game.dataset.state = round.state;
   caught.textContent = String(round.caught);
@@ -48,6 +105,7 @@ function render() {
 
   const needsRotation = portraitPhone.matches;
   rotate.hidden = !needsRotation;
+  soundButton.hidden = needsRotation;
   ready.hidden = needsRotation || round.state !== "ready";
   paused.hidden = needsRotation || round.state !== "paused";
   lost.hidden = needsRotation || round.state !== "lost";
@@ -57,12 +115,17 @@ function render() {
 function update() {
   if (round.state !== "playing") return;
   const now = performance.now();
+  const previousMisses = round.missed;
   round.advance(now - previousTime);
   previousTime = now;
+  if (lastReaction && now >= reactionUntil) clearReaction();
   if (gameHasEnded()) {
+    react("defeat");
     input.pause();
     render();
     restart.focus();
+  } else if (round.missed > previousMisses) {
+    react("miss");
   }
 }
 
@@ -85,10 +148,13 @@ function begin() {
   if (document.hidden || portraitPhone.matches || round.state === "playing")
     return;
   round.start();
+  swallow = undefined;
+  clearReaction();
   continuePlay();
 }
 
 function continuePlay() {
+  sound.activate();
   input.resume(false);
   previousTime = performance.now();
   render();
@@ -98,11 +164,34 @@ function continuePlay() {
 
 function press(source: string, lane: Lane) {
   update();
-  if (input.press(source, lane)) round.catchBanana(lane);
+  if (input.press(source, lane)) {
+    const progress = round.catchBanana(lane);
+    if (progress !== undefined) {
+      swallow = { lane, from: progress, started: previousTime };
+      react("catch");
+    } else if (swallow?.lane !== lane) {
+      swallow = undefined;
+    }
+  }
   render();
 }
 
+function clearReaction() {
+  lastReaction = undefined;
+  delete reaction.dataset.reaction;
+  reaction.textContent = "";
+}
+
+function react(kind: Reaction) {
+  lastReaction = kind;
+  reactionUntil = previousTime + 750;
+  reaction.dataset.reaction = kind;
+  reaction.textContent = reactionText[kind];
+  sound.play(kind);
+}
+
 function stop() {
+  swallow = undefined;
   round.pause();
   input.pause();
   render();
@@ -182,7 +271,12 @@ pause.addEventListener("click", togglePause);
 resume.addEventListener("click", togglePause);
 addEventListener("blur", stop);
 portraitPhone.addEventListener("change", rotateScreen);
+compactLandscape.addEventListener("change", render);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stop();
 });
+hero.addEventListener("load", render);
+bananaSprite.addEventListener("load", render);
+cannonSprite.addEventListener("load", render);
+new ResizeObserver(render).observe(canvas);
 rotateScreen();
