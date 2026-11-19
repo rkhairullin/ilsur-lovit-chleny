@@ -1,4 +1,5 @@
 import { GameInput, laneForKey, type Lane } from "./input.js";
+import { Round, missLimit } from "./round.js";
 import { drawScene } from "./scene.js";
 
 const game = document.querySelector<HTMLElement>(".game")!;
@@ -15,6 +16,16 @@ const portraitPhone = matchMedia(
   "(orientation: portrait) and (any-pointer: coarse), (orientation: portrait) and (max-width: 600px)",
 );
 const input = new GameInput();
+input.pause();
+const round = new Round();
+const ready = document.querySelector<HTMLElement>("#ready")!;
+const lost = document.querySelector<HTMLElement>("#lost")!;
+const start = document.querySelector<HTMLButtonElement>("#start")!;
+const restart = document.querySelector<HTMLButtonElement>("#restart")!;
+const caught = document.querySelector<HTMLElement>("#caught")!;
+const misses = document.querySelector<HTMLElement>("#misses")!;
+let previousTime = 0;
+let framePending = false;
 
 function render() {
   const lane = input.lane;
@@ -22,28 +33,84 @@ function render() {
   for (const button of controls) {
     button.setAttribute("aria-pressed", String(button.dataset.lane === lane));
   }
-  if (ctx) drawScene(ctx, lane);
+  if (ctx)
+    drawScene(ctx, lane, round.state === "lost" ? undefined : round.banana);
+
+  game.dataset.state = round.state;
+  caught.textContent = String(round.caught);
+  misses.textContent = `${round.missed} / ${missLimit}`;
 
   const needsRotation = portraitPhone.matches;
-  const showPause = input.paused && !needsRotation;
   rotate.hidden = !needsRotation;
-  paused.hidden = !showPause;
-  hud.inert = input.paused;
-  arena.inert = input.paused;
+  ready.hidden = needsRotation || round.state !== "ready";
+  paused.hidden = needsRotation || round.state !== "paused";
+  lost.hidden = needsRotation || round.state !== "lost";
+  hud.inert = arena.inert = needsRotation || round.state !== "playing";
+}
+
+function update() {
+  if (round.state !== "playing") return;
+  const now = performance.now();
+  round.advance(now - previousTime, input.lane);
+  previousTime = now;
+  if (gameHasEnded()) {
+    input.pause();
+    render();
+    restart.focus();
+  }
+}
+
+function gameHasEnded() {
+  return round.state === "lost";
+}
+
+function scheduleFrame() {
+  if (framePending || round.state !== "playing") return;
+  framePending = true;
+  requestAnimationFrame(() => {
+    framePending = false;
+    update();
+    render();
+    scheduleFrame();
+  });
+}
+
+function begin() {
+  if (document.hidden || portraitPhone.matches || round.state === "playing")
+    return;
+  round.start();
+  continuePlay();
+}
+
+function continuePlay() {
+  input.resume(false);
+  previousTime = performance.now();
+  render();
+  pause.focus();
+  scheduleFrame();
+}
+
+function press(source: string, lane: Lane) {
+  update();
+  input.press(source, lane);
+  round.advance(0, input.lane);
+  render();
 }
 
 function stop() {
+  round.pause();
   input.pause();
   render();
   if (!paused.hidden) resume.focus();
 }
 
 function togglePause() {
-  if (input.paused) {
-    input.resume(document.hidden || portraitPhone.matches);
-    render();
-    if (!input.paused) pause.focus();
+  if (round.state === "paused") {
+    if (document.hidden || portraitPhone.matches) return;
+    round.resume();
+    continuePlay();
   } else {
+    update();
     stop();
   }
 }
@@ -53,6 +120,8 @@ function rotateScreen() {
   else {
     render();
     if (!paused.hidden) resume.focus();
+    if (!ready.hidden) start.focus();
+    if (!lost.hidden) restart.focus();
   }
 }
 
@@ -66,12 +135,12 @@ addEventListener("keydown", (event) => {
   if (!lane || event.ctrlKey || event.altKey || event.metaKey) return;
   event.preventDefault();
   if (!event.repeat) {
-    input.press(event.code, lane);
-    render();
+    press(event.code, lane);
   }
 });
 
 addEventListener("keyup", (event) => {
+  update();
   input.release(event.code);
   render();
 });
@@ -80,8 +149,7 @@ for (const button of controls) {
   button.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     button.setPointerCapture(event.pointerId);
-    input.press(String(event.pointerId), button.dataset.lane as Lane);
-    render();
+    press(String(event.pointerId), button.dataset.lane as Lane);
   });
 
   for (const type of [
@@ -90,6 +158,7 @@ for (const button of controls) {
     "lostpointercapture",
   ] as const) {
     button.addEventListener(type, (event) => {
+      update();
       input.release(String(event.pointerId));
       render();
     });
@@ -98,11 +167,12 @@ for (const button of controls) {
   button.addEventListener("keydown", (event) => {
     if (event.code !== "Space" && event.code !== "Enter") return;
     event.preventDefault();
-    input.press(event.code, button.dataset.lane as Lane);
-    render();
+    if (!event.repeat) press(event.code, button.dataset.lane as Lane);
   });
 }
 
+start.addEventListener("click", begin);
+restart.addEventListener("click", begin);
 pause.addEventListener("click", togglePause);
 resume.addEventListener("click", togglePause);
 addEventListener("blur", stop);

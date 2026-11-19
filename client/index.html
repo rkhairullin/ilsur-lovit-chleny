@@ -14,10 +14,10 @@
   <body>
     <main class="game" aria-label="Ильсур ловит члены">
       <header class="hud">
-        <div>Членов напихано <b>0</b></div>
+        <div>Членов напихано <b id="caught">0</b></div>
         <div>Серия <b>0</b></div>
         <div>Множитель <b>×1</b></div>
-        <div>Промахи <b>0 / 6</b></div>
+        <div>Промахи <b id="misses">0 / 6</b></div>
         <button
           id="pause"
           type="button"
@@ -63,6 +63,14 @@
             <kbd>L</kbd><span aria-hidden="true">↓</span>
           </button>
         </div>
+      </section>
+      <section class="overlay" id="ready" aria-labelledby="ready-title">
+        <h1 id="ready-title">Ильсур ловит члены</h1>
+        <button id="start" type="button">Начать игру</button>
+      </section>
+      <section class="overlay" id="lost" hidden aria-labelledby="lost-title">
+        <h1 id="lost-title" lang="en">Gay over</h1>
+        <button id="restart" type="button">Играть снова</button>
       </section>
       <section class="overlay" id="paused" hidden aria-labelledby="pause-title">
         <h1 id="pause-title">Пауза</h1>

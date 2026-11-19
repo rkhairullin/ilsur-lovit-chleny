@@ -1,4 +1,14 @@
 import { lanes, type Lane } from "./input.js";
+import type { Round } from "./round.js";
+
+const floorY = 518;
+
+const starts = [
+  { x: 172, y: 68 },
+  { x: 172, y: 472 },
+  { x: 1028, y: 68 },
+  { x: 1028, y: 472 },
+];
 
 const ends = [
   { x: 420, y: 160, color: "#ff77c8" },
@@ -10,6 +20,7 @@ const ends = [
 export function drawScene(
   ctx: CanvasRenderingContext2D,
   lane: Lane | undefined,
+  banana: Round["banana"],
 ) {
   ctx.clearRect(0, 0, 1200, 540);
   for (const [index, end] of ends.entries()) {
@@ -18,7 +29,8 @@ export function drawScene(
     ctx.lineWidth = active ? 7 : 3;
     ctx.setLineDash(active ? [] : [10, 12]);
     ctx.beginPath();
-    ctx.moveTo(index < 2 ? 172 : 1028, end.y < 270 ? 68 : 472);
+    const start = starts[index]!;
+    ctx.moveTo(start.x, start.y);
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
     ctx.fillStyle = end.color;
@@ -37,4 +49,14 @@ export function drawScene(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("🐓", position.x, position.y);
+  if (banana) {
+    const index = lanes.indexOf(banana.lane);
+    const end = ends[index]!;
+    const { x, y } = starts[index]!;
+    ctx.fillText(
+      "🍌",
+      x + (end.x - x) * banana.progress,
+      y + (end.y - y) * banana.progress + (floorY - end.y) * banana.fall ** 2,
+    );
+  }
 }
