@@ -242,7 +242,7 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(frames).toHaveLength(1);
 });
 
-test("holding a key and its auto-repeat cannot catch a second banana from the same cannon", async () => {
+test("holding a key, auto-repeat and duplicate keydown cannot catch a second banana", async () => {
   const { el, play, advance, window, lane } = await mount();
   play();
   fire(window, "keydown", { code: "KeyQ" });
@@ -260,6 +260,8 @@ test("holding a key and its auto-repeat cannot catch a second banana from the sa
   expect(el("#caught").textContent).toBe("17");
   advance(100);
   fire(window, "keydown", { code: "KeyQ", repeat: true });
+  expect(el("#caught").textContent).toBe("17");
+  fire(window, "keydown", { code: "KeyQ", repeat: false });
   expect(el("#caught").textContent).toBe("17");
   fire(window, "keyup", { code: "KeyQ" });
   fire(lane, "pointerdown", { button: 0, pointerId: 8 });
