@@ -7,3 +7,14 @@ export function readConfig(env: NodeJS.ProcessEnv) {
   if (host.trim() === "") throw new Error("HOST must not be empty");
   return { host, port };
 }
+
+export function readLoginConfig(env: NodeJS.ProcessEnv) {
+  const password = env.GAME_PASSWORD;
+  if (!password || password.length > 128)
+    throw new Error("GAME_PASSWORD must contain 1 to 128 characters");
+  return {
+    password,
+    databasePath: env.DATABASE_PATH ?? "./data/game.sqlite",
+    secureCookie: env.NODE_ENV === "production",
+  };
+}

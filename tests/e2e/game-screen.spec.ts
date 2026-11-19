@@ -1,4 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function openGame(page: Page) {
+  await page.request.post("/login", {
+    form: { nickname: "Игрок теста", password: "browser-test-password" },
+  });
+  await page.goto("/");
+}
 
 test("keyboard positions, holding, and pause in the production build", async ({
   page,
@@ -6,7 +13,7 @@ test("keyboard positions, holding, and pause in the production build", async ({
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/");
+  await openGame(page);
   await page.getByRole("button", { name: "Начать игру" }).click();
   const game = page.getByRole("main");
   for (const [key, lane] of [
@@ -50,7 +57,7 @@ test("touch release, multiple pointers and cancellation", async ({
     hasTouch: true,
     viewport: { width: 844, height: 390 },
   });
-  await page.goto("/");
+  await openGame(page);
   await page.getByRole("button", { name: "Начать игру" }).click();
   const game = page.getByRole("main");
   const left = page.getByRole("button", { name: "Слева сверху" });
@@ -80,7 +87,7 @@ test("touch release, multiple pointers and cancellation", async ({
 
 test("rotation and loss of focus pause and clear input", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await openGame(page);
   await expect(
     page.getByRole("heading", { name: "Поверните телефон" }),
   ).toBeVisible();
@@ -112,7 +119,7 @@ test("production API health and deterministic clock and random values", async ({
     const values = [0.25, 0.75];
     Math.random = () => values.shift() ?? 0.5;
   });
-  await page.goto("/");
+  await openGame(page);
   expect(
     await page.evaluate(() => [
       new Date().toISOString(),
@@ -130,7 +137,7 @@ for (const viewport of [
 ]) {
   test(`layout ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await page.goto("/");
+    await openGame(page);
     const bounds = await page.evaluate(() => [
       document.documentElement.scrollWidth,
       document.documentElement.scrollHeight,
@@ -150,7 +157,7 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport);
-    await page.goto("/");
+    await openGame(page);
     if (viewport.width > viewport.height) {
       await page.clock.install();
       await page.clock.pauseAt(new Date(Date.now() + 1000));
@@ -189,7 +196,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
     });
   });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/");
+  await openGame(page);
   const game = page.getByRole("main");
   const tick = (ms: number) =>
     page.evaluate(
@@ -242,7 +249,7 @@ test("@visual start, banana in flight and defeat", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
-  await page.goto("/");
+  await openGame(page);
   await expect(page.getByRole("button", { name: "Начать игру" })).toBeVisible();
   await expect.soft(page).toHaveScreenshot("round-ready.png");
   await page.getByRole("button", { name: "Начать игру" }).click();
@@ -290,7 +297,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
-  await page.goto("/");
+  await openGame(page);
   await page.getByRole("button", { name: "Начать игру" }).click();
   const canvas = page.locator("canvas");
   for (let index = 0; index < 16; index++) {

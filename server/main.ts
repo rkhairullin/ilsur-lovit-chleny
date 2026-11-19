@@ -1,11 +1,17 @@
 import { createApp } from "./app.js";
-import { readConfig } from "./config.js";
+import { readConfig, readLoginConfig } from "./config.js";
 
-const app = createApp();
+let app: ReturnType<typeof createApp> | undefined;
 try {
-  await app.listen(readConfig(process.env));
+  const address = readConfig(process.env);
+  app = createApp(readLoginConfig(process.env));
+  await app.listen(address);
 } catch (error) {
-  app.log.error(error);
+  if (app) {
+    app.log.error(error);
+    await app.close();
+  } else {
+    console.error(error);
+  }
   process.exitCode = 1;
-  await app.close();
 }
