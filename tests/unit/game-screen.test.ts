@@ -14,7 +14,12 @@ class ElementStub extends EventTarget {
 }
 
 async function mount(
-  options: { portrait?: boolean; canvas?: boolean; random?: () => number } = {},
+  options: {
+    portrait?: boolean;
+    canvas?: boolean;
+    random?: () => number;
+    sprites?: boolean;
+  } = {},
 ) {
   vi.resetModules();
   vi.stubGlobal(
@@ -40,8 +45,25 @@ async function mount(
       "#streak",
       "#multiplier",
       "#final-score",
+      "#hero-sprite",
+      "#banana-sprite",
+      "#cannon-sprite",
+      "#reaction",
+      "#sound",
     ].map((selector) => [selector, new ElementStub()]),
   );
+  if (options.sprites) {
+    for (const selector of [
+      "#hero-sprite",
+      "#banana-sprite",
+      "#cannon-sprite",
+    ]) {
+      Object.assign(elements.get(selector)!, {
+        naturalWidth: 150,
+        naturalHeight: 100,
+      });
+    }
+  }
   const lane = new ElementStub();
   lane.dataset.lane = "upper-left";
   const drawing = {
@@ -54,13 +76,36 @@ async function mount(
     arc: vi.fn(),
     fill: vi.fn(),
     fillText: vi.fn(),
+    drawImage: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    scale: vi.fn(),
+    setTransform: vi.fn(),
+    rotate: vi.fn(),
   };
+  const canvas = {
+    clientWidth: 1200,
+    clientHeight: 540,
+    width: 1200,
+    height: 540,
+    getContext: () => (options.canvas === false ? null : drawing),
+  };
+  let resize = () => {};
+  vi.stubGlobal("devicePixelRatio", 1);
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: () => void) {
+        resize = callback;
+      }
+      observe() {}
+    },
+  );
   const document = Object.assign(new EventTarget(), {
     hidden: false,
     querySelector: (selector: string) =>
-      selector === "canvas"
-        ? { getContext: () => (options.canvas === false ? null : drawing) }
-        : elements.get(selector),
+      selector === "canvas" ? canvas : elements.get(selector),
     querySelectorAll: () => [lane],
   });
   const media = Object.assign(new EventTarget(), {
@@ -68,7 +113,19 @@ async function mount(
   });
   const window = new EventTarget();
   vi.stubGlobal("document", document);
-  vi.stubGlobal("matchMedia", () => media);
+  vi.stubGlobal("localStorage", {
+    getItem: () => "off",
+    setItem: vi.fn(),
+  });
+  const landscape = Object.assign(new EventTarget(), { matches: false });
+  const motion = Object.assign(new EventTarget(), { matches: false });
+  vi.stubGlobal("matchMedia", (query: string) =>
+    query.includes("max-height")
+      ? landscape
+      : query.includes("reduced-motion")
+        ? motion
+        : media,
+  );
   vi.stubGlobal("addEventListener", window.addEventListener.bind(window));
   const frames: FrameRequestCallback[] = [];
   let now = 0;
@@ -88,8 +145,12 @@ async function mount(
     lane,
     document,
     media,
+    landscape,
+    motion,
     window,
     drawing,
+    canvas,
+    resize: () => resize(),
     play,
     el,
     advance,
@@ -289,4 +350,162 @@ test("a new round draws its first lane, even after a restart", async () => {
   advance(500);
   fire(window, "keydown", { code: "KeyA" });
   expect(el("#caught").textContent).toBe("1");
+});
+
+test("loaded sprites render and the hero turns and leans toward the selected lane", async () => {
+  const { drawing, el, window, play, advance } = await mount({ sprites: true });
+  fire(el("#hero-sprite"), "load");
+  fire(el("#banana-sprite"), "load");
+  expect(drawing.drawImage).toHaveBeenCalledWith(
+    el("#hero-sprite"),
+    -78,
+    -52,
+    156,
+    104,
+  );
+  play();
+  advance(500);
+  expect(drawing.drawImage).toHaveBeenCalledWith(
+    el("#banana-sprite"),
+    142,
+    48,
+    60,
+    40,
+  );
+  fire(window, "keydown", { code: "KeyA" });
+  expect(drawing.scale).toHaveBeenCalledWith(-1, 1);
+  expect(drawing.rotate).toHaveBeenCalledWith(0.22);
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#reaction").textContent).toBe("Отсосал");
+  advance(751);
+  expect(el("#reaction").textContent).toBe("");
+});
+
+test("compact landscape scales the hero immediately without scaling the banana", async () => {
+  const { drawing, el, landscape, play, advance } = await mount({
+    sprites: true,
+  });
+  play();
+  advance(500);
+  landscape.matches = true;
+  fire(landscape, "change");
+  expect(drawing.drawImage).toHaveBeenCalledWith(
+    el("#hero-sprite"),
+    -117,
+    -78,
+    234,
+    156,
+  );
+  expect(drawing.drawImage).toHaveBeenLastCalledWith(
+    el("#banana-sprite"),
+    142,
+    48,
+    60,
+    40,
+  );
+  landscape.matches = false;
+  fire(landscape, "change");
+  expect(drawing.drawImage).toHaveBeenCalledWith(
+    el("#hero-sprite"),
+    -78,
+    -52,
+    156,
+    104,
+  );
+});
+
+test("the same cannon sprite is mirrored and aimed from all four launch points", async () => {
+  const { drawing, el } = await mount({ sprites: true });
+  for (const mock of [
+    drawing.drawImage,
+    drawing.translate,
+    drawing.rotate,
+    drawing.scale,
+  ]) {
+    mock.mockClear();
+  }
+  fire(el("#cannon-sprite"), "load");
+  const angle = Math.atan2(92, 248);
+  expect(drawing.translate.mock.calls.slice(0, 4)).toEqual([
+    [172, 68],
+    [172, 472],
+    [1028, 68],
+    [1028, 472],
+  ]);
+  expect(drawing.rotate.mock.calls).toEqual([
+    [angle],
+    [-angle],
+    [angle],
+    [-angle],
+  ]);
+  expect(drawing.scale.mock.calls).toEqual([
+    [1, 1],
+    [1, 1],
+    [-1, 1],
+    [-1, 1],
+  ]);
+  expect(drawing.drawImage.mock.calls.slice(0, 4)).toEqual(
+    Array.from({ length: 4 }, () => [
+      el("#cannon-sprite"),
+      -108 * 0.85,
+      -36,
+      108,
+      72,
+    ]),
+  );
+});
+
+test("catch pulls the banana to the anchored mouth, even after key release", async () => {
+  const { drawing, el, motion, play, advance, window } = await mount({
+    sprites: true,
+  });
+  const draws = (selector: string) =>
+    drawing.drawImage.mock.calls.filter(([sprite]) => sprite === el(selector));
+  play();
+  advance(500);
+  fire(window, "keydown", { code: "KeyQ" });
+  fire(window, "keyup", { code: "KeyQ" });
+  fire(window, "keydown", { code: "KeyQ" });
+  fire(window, "keyup", { code: "KeyQ" });
+  expect(el("#caught").textContent).toBe("1");
+  drawing.arc.mockClear();
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(drawing.arc.mock.calls).toHaveLength(3);
+  expect(
+    drawing.arc.mock.calls.every(
+      ([x, y, radius]) => radius === 11 && (x !== 420 || y !== 160),
+    ),
+  ).toBe(true);
+  fire(window, "keyup", { code: "KeyQ" });
+  const heroDraw = draws("#hero-sprite").at(-1)!;
+  [-168 * 0.72, -112 * 0.245, 168, 112].forEach((value, index) => {
+    expect(heroDraw[index + 1]).toBeCloseTo(value);
+  });
+  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(144);
+  advance(80);
+  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(282);
+  drawing.drawImage.mockClear();
+  motion.matches = true;
+  advance(30);
+  expect(draws("#banana-sprite")).toHaveLength(0);
+  motion.matches = false;
+  advance(50);
+  expect(draws("#banana-sprite")).toHaveLength(0);
+});
+
+test("a tall high-density viewport uses equal axis scaling and a sharper canvas", async () => {
+  const { canvas, drawing, resize } = await mount();
+  canvas.clientWidth = 1400;
+  canvas.clientHeight = 1000;
+  vi.stubGlobal("devicePixelRatio", 2);
+  resize();
+  expect([canvas.width, canvas.height]).toEqual([2800, 1260]);
+  expect(drawing.setTransform).toHaveBeenLastCalledWith(
+    140 / 60,
+    0,
+    0,
+    140 / 60,
+    0,
+    0,
+  );
 });

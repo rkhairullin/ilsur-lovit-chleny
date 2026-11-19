@@ -60,10 +60,12 @@ export class Round {
       (banana) => banana.lane === lane && this.elapsed < banana.deadline,
     );
     if (index < 0) return;
+    const banana = this.active[index]!;
     this.active.splice(index, 1);
     this.score += 10 * this.multiplier;
     this.streak++;
     this.caught++;
+    return (this.elapsed - banana.launch) / banana.flight;
   }
 
   advance(delta: number) {

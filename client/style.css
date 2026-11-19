@@ -33,6 +33,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  padding-right: 50px;
 }
 .hud div {
   flex: 1 1 auto;
@@ -66,18 +67,22 @@ button:focus-visible {
   position: relative;
   border: 1px solid #c04fbd;
   border-radius: 18px;
-  background: radial-gradient(
-    ellipse at 50% 82%,
-    #63235f,
-    #25113d 60%,
-    #100923
-  );
   overflow: hidden;
+  background: #180c2c url("/disco-floor.webp") center top / cover no-repeat;
 }
 canvas {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+}
+@media (orientation: landscape) and (min-height: 501px) {
+  .arena {
+    align-self: start;
+    width: 100%;
+    aspect-ratio: 20 / 9;
+    max-height: 100%;
+  }
 }
 .controls {
   position: absolute;
@@ -146,4 +151,72 @@ canvas {
   background: #361851;
   color: inherit;
   text-decoration: none;
+}
+
+#sound {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 2;
+  font-size: 1.4rem;
+}
+
+#sound[aria-pressed="false"] span {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.reaction {
+  position: absolute;
+  top: 13%;
+  left: 50%;
+  translate: -50%;
+  color: #fbf1ff;
+  font-weight: 750;
+  pointer-events: none;
+}
+
+.reaction[data-reaction] {
+  padding: 0.12em 0.65em;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: #170d2b;
+}
+
+.reaction[data-reaction="catch"] {
+  color: #9affd8;
+}
+
+.reaction[data-reaction="miss"] {
+  color: #ffd178;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .reaction[data-reaction="catch"] {
+    animation: reaction 300ms ease-out;
+  }
+
+  .reaction[data-reaction="miss"] {
+    animation: reaction 200ms ease-out reverse;
+  }
+}
+
+@keyframes reaction {
+  from {
+    transform: scale(0.88);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (min-width: 640px) {
+  #ready,
+  #lost {
+    background:
+      linear-gradient(90deg, #130a2455, #130a24f7 44%),
+      url("/login-character.png") left 7% bottom / auto 88% no-repeat,
+      #130a24f7;
+  }
 }
