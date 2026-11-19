@@ -4,7 +4,7 @@ async function openGame(page: Page) {
   await page.request.post("/login", {
     form: { nickname: "Игрок теста", password: "browser-test-password" },
   });
-  await page.goto("/");
+  await page.goto("/ilsur-lovit-chleny/");
 }
 
 test("keyboard positions, holding, and pause in the production build", async ({
@@ -40,7 +40,11 @@ test("keyboard positions, holding, and pause in the production build", async ({
   await page.keyboard.up("q");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "Пауза" })).toBeFocused();
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(
+    process.platform === "darwin" && test.info().project.name === "webkit"
+      ? "Alt+Tab"
+      : "Tab",
+  );
   await expect(
     page.getByRole("button", { name: "Слева сверху" }),
   ).toBeFocused();
