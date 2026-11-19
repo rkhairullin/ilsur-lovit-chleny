@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
@@ -18,6 +20,12 @@ export default defineConfig({
         : "npm run build && npm start",
     url: "http://127.0.0.1:3000/api/health",
     reuseExistingServer: false,
-    env: { HOST: "127.0.0.1", PORT: "3000" },
+    env: {
+      HOST: "127.0.0.1",
+      PORT: "3000",
+      NODE_ENV: "test",
+      GAME_PASSWORD: "browser-test-password",
+      DATABASE_PATH: join(tmpdir(), `ilsur-playwright-${process.pid}.sqlite`),
+    },
   },
 });

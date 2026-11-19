@@ -76,7 +76,14 @@
       </section>
       <section class="overlay" id="paused" hidden aria-labelledby="pause-title">
         <h1 id="pause-title">Пауза</h1>
+        <p id="player-nickname">
+          Игрок:
+          <!-- player nickname -->
+        </p>
         <button id="resume" type="button">Продолжить</button>
+        <form method="post" action="/logout">
+          <button type="submit">Выйти</button>
+        </form>
       </section>
       <section class="overlay" id="rotate" hidden>
         <h1>Поверните телефон</h1>
