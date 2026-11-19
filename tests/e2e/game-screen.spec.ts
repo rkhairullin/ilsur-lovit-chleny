@@ -205,6 +205,8 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
   await page.keyboard.down("q");
   await page.keyboard.up("q");
   await expect(page.locator("#caught")).toHaveText("1");
+  await expect(page.locator("#score")).toHaveText("10");
+  await expect(page.locator("#streak")).toHaveText("1");
   await toggleHidden();
   await expect(game).toHaveAttribute("data-state", "paused");
   await tick(30000);
@@ -217,7 +219,13 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
     page.getByRole("heading", { name: "Gay over", exact: true }),
   ).toBeVisible();
   await expect(page.locator("#misses")).toHaveText("6 / 6");
+  await expect(page.locator("#final-score")).toHaveText("10");
+  await page.keyboard.press("q");
+  await expect(page.locator("#final-score")).toHaveText("10");
   await page.getByRole("button", { name: "Играть снова" }).click();
+  await expect(page.locator("#score")).toHaveText("0");
+  await expect(page.locator("#streak")).toHaveText("0");
+  await expect(page.locator("#multiplier")).toHaveText("×1");
   await expect(game).toHaveAttribute("data-state", "playing");
   await expect(page.locator("#misses")).toHaveText("0 / 6");
   await expect(page.locator("#caught")).toHaveText("0");
@@ -291,6 +299,9 @@ test("@visual draws overlapping flights and catches either lane independently", 
     await page.keyboard.press("q");
   }
   await expect(page.locator("#caught")).toHaveText("16");
+  await expect(page.locator("#score")).toHaveText("220");
+  await expect(page.locator("#streak")).toHaveText("16");
+  await expect(page.locator("#multiplier")).toHaveText("×2");
   await page.clock.fastForward(4000);
   await expect(canvas).toHaveAttribute("data-bananas", "2");
   await expect.soft(page).toHaveScreenshot("round-overlapping-flights.png");

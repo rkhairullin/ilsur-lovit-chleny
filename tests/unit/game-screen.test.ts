@@ -36,6 +36,10 @@ async function mount(
       "#restart",
       "#caught",
       "#misses",
+      "#score",
+      "#streak",
+      "#multiplier",
+      "#final-score",
     ].map((selector) => [selector, new ElementStub()]),
   );
   const lane = new ElementStub();

@@ -163,3 +163,76 @@ test("two bananas from the same cannon require two catches", () => {
   expect(round.caught).toBe(before + 2);
   expect(round.bananas).toHaveLength(0);
 });
+
+test("the next catch after ten or twenty consecutive catches earns the new multiplier", () => {
+  const round = new Round(() => 0);
+  const sequence = bananaSequence(() => 0);
+  const scores = new Map([
+    [9, 90],
+    [10, 100],
+    [11, 120],
+    [19, 280],
+    [20, 300],
+    [21, 330],
+  ]);
+  round.start();
+  let now = 0;
+  for (let caught = 1; caught <= 21; caught++) {
+    const { lane, launch } = sequence.next().value;
+    round.advance(launch - now);
+    round.catchBanana(lane);
+    now = launch;
+    if (scores.has(caught)) expect(round.score).toBe(scores.get(caught));
+  }
+  expect(round.streak).toBe(21);
+  expect(round.multiplier).toBe(3);
+
+  const missed = sequence.next().value;
+  const impact = missed.deadline + 340;
+  round.advance(impact - now);
+  now = impact;
+  expect(round.missed).toBe(1);
+  expect(round.score).toBe(330);
+  expect(round.streak).toBe(0);
+  expect(round.multiplier).toBe(1);
+  const next = sequence.next().value;
+  round.advance(Math.max(0, next.launch - now));
+  round.catchBanana(next.lane);
+  expect(round.score).toBe(340);
+  expect(round.streak).toBe(1);
+
+  round.start();
+  expect(round.score).toBe(0);
+  expect(round.streak).toBe(0);
+  expect(round.multiplier).toBe(1);
+});
+
+test("the sixth impact freezes scoring even during the last landing animation", () => {
+  const round = new Round(() => 0);
+  const sequence = bananaSequence(() => 0);
+  round.start();
+  let now = 0;
+  let item = sequence.next().value;
+  while (item.launch < 135_000) {
+    round.advance(item.launch - now);
+    round.catchBanana(item.lane);
+    now = item.launch;
+    item = sequence.next().value;
+  }
+  for (let index = 0; index < 5; index++) item = sequence.next().value;
+  const sixthImpact = item.deadline + 340;
+  round.advance(sixthImpact - now - 1);
+  expect(round.missed).toBe(5);
+  expect(round.state).toBe("playing");
+
+  const score = round.score;
+  round.advance(1);
+  expect(round.missed).toBe(6);
+  expect(round.bananas.some(({ progress }) => progress < 1)).toBe(true);
+  round.catchBanana(item.lane);
+  expect(round.score).toBe(score);
+  round.advance(160);
+  expect(round.state).toBe("lost");
+  round.catchBanana(item.lane);
+  expect(round.score).toBe(score);
+});
