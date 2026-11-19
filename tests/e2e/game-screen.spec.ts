@@ -7,6 +7,7 @@ test("keyboard positions, holding, and pause in the production build", async ({
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/");
+  await page.getByRole("button", { name: "Начать игру" }).click();
   const game = page.getByRole("main");
   for (const [key, lane] of [
     ["q", "upper-left"],
@@ -50,6 +51,7 @@ test("touch release, multiple pointers and cancellation", async ({
     viewport: { width: 844, height: 390 },
   });
   await page.goto("/");
+  await page.getByRole("button", { name: "Начать игру" }).click();
   const game = page.getByRole("main");
   const left = page.getByRole("button", { name: "Слева сверху" });
   const right = page.getByRole("button", { name: "Справа снизу" });
@@ -87,7 +89,7 @@ test("rotation and loss of focus pause and clear input", async ({ page }) => {
     page.getByRole("heading", { name: "Поверните телефон" }),
   ).toBeVisible();
   await page.setViewportSize({ width: 844, height: 390 });
-  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Начать игру" }).click();
   await page.keyboard.down("o");
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await expect(page.getByRole("button", { name: "Продолжить" })).toBeVisible();
@@ -149,6 +151,11 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    if (viewport.width > viewport.height) {
+      await page.clock.install();
+      await page.clock.pauseAt(new Date(Date.now() + 1000));
+      await page.getByRole("button", { name: "Начать игру" }).click();
+    }
     await expect(page.getByRole("main")).toHaveAttribute(
       "data-position",
       "center",
@@ -158,3 +165,82 @@ for (const viewport of [
     );
   });
 }
+
+test("low FPS, visibility pause, catching, defeat and restart", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let now = 0;
+    let callbacks: FrameRequestCallback[] = [];
+    let hidden = false;
+    Object.defineProperty(document, "hidden", { get: () => hidden });
+    document.addEventListener("test-visibility", () => {
+      hidden = !hidden;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    performance.now = () => now;
+    window.requestAnimationFrame = (callback) => callbacks.push(callback);
+    window.addEventListener("test-frame", (event) => {
+      now += (event as CustomEvent<number>).detail;
+      const pending = callbacks;
+      callbacks = [];
+      for (const callback of pending) callback(now);
+    });
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  const game = page.getByRole("main");
+  const tick = (ms: number) =>
+    page.evaluate(
+      (detail) =>
+        window.dispatchEvent(new CustomEvent("test-frame", { detail })),
+      ms,
+    );
+  const toggleHidden = () =>
+    page.evaluate(() => document.dispatchEvent(new Event("test-visibility")));
+  await expect(game).toHaveAttribute("data-state", "ready");
+  await page.getByRole("button", { name: "Начать игру" }).click();
+  await tick(900);
+  await page.keyboard.down("q");
+  await page.keyboard.up("q");
+  await expect(page.locator("#caught")).toHaveText("1");
+  await toggleHidden();
+  await expect(game).toHaveAttribute("data-state", "paused");
+  await tick(30000);
+  await expect(page.locator("#misses")).toHaveText("0 / 6");
+  await toggleHidden();
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await tick(20000);
+  await expect(game).toHaveAttribute("data-state", "lost");
+  await expect(
+    page.getByRole("heading", { name: "Gay over", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("#misses")).toHaveText("6 / 6");
+  await page.getByRole("button", { name: "Играть снова" }).click();
+  await expect(game).toHaveAttribute("data-state", "playing");
+  await expect(page.locator("#misses")).toHaveText("0 / 6");
+  await expect(page.locator("#caught")).toHaveText("0");
+  await tick(2139);
+  await expect(page.locator("#misses")).toHaveText("0 / 6");
+  await tick(1);
+  await expect(page.locator("#misses")).toHaveText("1 / 6");
+});
+
+test("@visual start, banana in flight and defeat", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Начать игру" })).toBeVisible();
+  await expect.soft(page).toHaveScreenshot("round-ready.png");
+  await page.getByRole("button", { name: "Начать игру" }).click();
+  await page.clock.fastForward(1100);
+  await expect.soft(page).toHaveScreenshot("round-flight.png");
+  await page.clock.fastForward(870);
+  await expect.soft(page).toHaveScreenshot("round-fall.png");
+  await page.clock.fastForward(15000);
+  await expect(
+    page.getByRole("button", { name: "Играть снова" }),
+  ).toBeFocused();
+  await expect.soft(page).toHaveScreenshot("round-lost.png");
+});
