@@ -232,15 +232,15 @@ test("@visual start, banana in flight and defeat", async ({ page }) => {
   await page.clock.pauseAt(new Date(Date.now() + 1000));
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Начать игру" })).toBeVisible();
-  await expect(page).toHaveScreenshot("round-ready.png");
+  await expect.soft(page).toHaveScreenshot("round-ready.png");
   await page.getByRole("button", { name: "Начать игру" }).click();
   await page.clock.fastForward(1100);
-  await expect(page).toHaveScreenshot("round-flight.png");
+  await expect.soft(page).toHaveScreenshot("round-flight.png");
   await page.clock.fastForward(870);
-  await expect(page).toHaveScreenshot("round-fall.png");
+  await expect.soft(page).toHaveScreenshot("round-fall.png");
   await page.clock.fastForward(15000);
   await expect(
     page.getByRole("button", { name: "Играть снова" }),
   ).toBeFocused();
-  await expect(page).toHaveScreenshot("round-lost.png");
+  await expect.soft(page).toHaveScreenshot("round-lost.png");
 });
