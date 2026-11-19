@@ -72,7 +72,7 @@ for (const viewport of [
 
     await expect(
       page.getByRole("button", { name: "Начать петушить" }),
-    ).toBeInViewport();
+    ).toBeInViewport({ ratio: 1 });
     await expect(page).toHaveScreenshot(
       `login-${viewport.width}x${viewport.height}.png`,
     );

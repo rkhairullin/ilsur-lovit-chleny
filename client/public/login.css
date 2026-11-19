@@ -133,6 +133,21 @@ button:focus-visible {
   color: #ffc0d9;
 }
 
+@media (orientation: landscape) and (max-height: 30rem) {
+  body {
+    padding-block: 0.75rem;
+  }
+
+  .login h1 {
+    margin-bottom: 0.75rem;
+    font-size: clamp(2rem, 11dvh, 4rem);
+  }
+
+  .login-panel {
+    padding: 1rem;
+  }
+}
+
 @media (max-width: 42rem) {
   .login-stage {
     grid-template-columns: minmax(0, 24rem);
