@@ -16,6 +16,14 @@ const ends = [
   { x: 780, y: 380, color: "#b697ff" },
 ];
 
+function bananaAngle(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+) {
+  // The source sprite points down.
+  return Math.atan2(end.y - start.y, end.x - start.x) - Math.PI / 2;
+}
+
 export function drawScene(
   ctx: CanvasRenderingContext2D,
   lane: Lane | undefined,
@@ -69,6 +77,7 @@ export function drawScene(
     ctx.fillText("🐓", position.x, position.y);
   }
   const bananaSize = compactLandscape ? 76 : 68;
+  const goldenSize = bananaSize * 1.5;
   if (swallowing && lane) {
     const start = starts[lanes.indexOf(lane)]!;
     const progress =
@@ -81,23 +90,34 @@ export function drawScene(
         "🍌",
         start.x + (position.x - start.x) * progress,
         start.y + (position.y - start.y) * progress,
-        bananaSize * (1 - swallowing.progress),
+        (swallowing.golden ? goldenSize : bananaSize) *
+          (1 - swallowing.progress),
+        undefined,
+        bananaAngle(start, position),
       );
     }
   }
-  const floor = 540 - bananaSize / 2;
   ctx.font = `${Math.round(bananaSize * 0.7)}px sans-serif`;
   for (const banana of bananas) {
     const index = lanes.indexOf(banana.lane);
     const end = ends[index]!;
-    const { x, y } = starts[index]!;
+    const start = starts[index]!;
+    const size = banana.golden ? goldenSize : bananaSize;
+    const floor = 540 - size / 2;
+    const drawX = start.x + (end.x - start.x) * banana.progress;
+    const drawY =
+      start.y +
+      (end.y - start.y) * banana.progress +
+      (floor - end.y) * banana.fall ** 2;
     drawSprite(
       ctx,
       banana.decoy ? decoySprite : banana.golden ? goldenSprite : bananaSprite,
       banana.decoy ? "✖" : banana.golden ? "⭐" : "🍌",
-      x + (end.x - x) * banana.progress,
-      y + (end.y - y) * banana.progress + (floor - end.y) * banana.fall ** 2,
-      bananaSize,
+      drawX,
+      drawY,
+      size,
+      undefined,
+      banana.decoy || banana.fall > 0 ? undefined : bananaAngle(start, end),
     );
   }
 }
@@ -143,6 +163,7 @@ function drawSprite(
   y: number,
   size: number,
   [anchorX, anchorY] = [0.5, 0.5],
+  angle?: number,
 ) {
   if (!image.naturalWidth) {
     ctx.fillStyle = "#fff4ff";
@@ -153,6 +174,14 @@ function drawSprite(
   const scale = size / Math.max(image.naturalWidth, image.naturalHeight);
   const width = image.naturalWidth * scale;
   const height = image.naturalHeight * scale;
+  if (angle !== undefined) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.drawImage(image, -width * anchorX, -height * anchorY, width, height);
+    ctx.restore();
+    return;
+  }
   ctx.drawImage(
     image,
     x - width * anchorX,

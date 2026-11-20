@@ -311,6 +311,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
       height,
     ) {
       this.canvas.dataset.bananas = "0";
+      this.canvas.dataset.bananaDirections = "";
       clearRect.call(this, x, y, width, height);
     };
     CanvasRenderingContext2D.prototype.drawImage = function (
@@ -322,6 +323,8 @@ test("@visual draws overlapping flights and catches either lane independently", 
         sprite.id === "banana-sprite" &&
         Math.max(...coordinates.slice(-2)) >= 59.99
       ) {
+        const { c, d } = this.getTransform();
+        this.canvas.dataset.bananaDirections += `${Math.sign(c)},${Math.sign(d)};`;
         this.canvas.dataset.bananas = String(
           Number(this.canvas.dataset.bananas) + 1,
         );
@@ -348,6 +351,10 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await expect(page.locator("#multiplier")).toHaveText("×2");
   await page.clock.fastForward(4000);
   await expect(canvas).toHaveAttribute("data-bananas", "2");
+  await expect(canvas).toHaveAttribute(
+    "data-banana-directions",
+    /^(1,1;-1,-1;|-1,-1;1,1;)$/,
+  );
   await expect.soft(page).toHaveScreenshot("round-overlapping-flights.png");
   await page.keyboard.press("l");
   await expect(canvas).toHaveAttribute("data-bananas", "1");
