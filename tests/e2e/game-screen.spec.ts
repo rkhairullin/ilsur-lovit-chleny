@@ -41,14 +41,14 @@ test("keyboard positions, holding, and pause in the production build", async ({
   await page.keyboard.up("q");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "Пауза" })).toBeFocused();
-  await page.keyboard.press(
+  const tab =
     process.platform === "darwin" && test.info().project.name === "webkit"
       ? "Alt+Tab"
-      : "Tab",
-  );
-  await expect(
-    page.getByRole("button", { name: "Слева сверху" }),
-  ).toBeFocused();
+      : "Tab";
+  for (const name of ["Весь звук", "Музыка", "Слева сверху"]) {
+    await page.keyboard.press(tab);
+    await expect(page.getByRole("button", { name })).toBeFocused();
+  }
   await page.keyboard.down("Space");
   await expect(game).toHaveAttribute("data-position", "upper-left");
   await page.keyboard.up("Space");
@@ -501,12 +501,6 @@ for (const capture of [false, true]) {
         await expect(page.locator("#misses")).toHaveText("0 / 6");
       }
       await expect(page.locator("#score")).toHaveText(score!);
-      const root = page.locator("html");
-      if (capture) {
-        await expect(root).toHaveAttribute("data-golden-sound", "played");
-      } else {
-        await expect(root).not.toHaveAttribute("data-golden-sound", "played");
-      }
       break;
     }
   });
@@ -562,6 +556,12 @@ for (const capture of [false, true]) {
       await expect(page.locator("#streak")).toHaveText(
         String(streak + Number(capture)),
       );
+      const root = page.locator("html");
+      if (capture) {
+        await expect(root).toHaveAttribute("data-golden-sound", "played");
+      } else {
+        await expect(root).not.toHaveAttribute("data-golden-sound", "played");
+      }
       break;
     }
   });

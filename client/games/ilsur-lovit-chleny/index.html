@@ -20,6 +20,77 @@
         <div>Множитель <b id="multiplier">×1</b></div>
         <div>Промахи <b id="misses">0 / 6</b></div>
       </header>
+      <div id="audio-controls" role="group" aria-label="Управление игрой">
+        <button
+          id="pause"
+          type="button"
+          aria-label="Пауза"
+          title="Пауза"
+          aria-keyshortcuts="Escape"
+          hidden
+        >
+          <svg
+            aria-hidden="true"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path d="M9 5v14m6-14v14" />
+          </svg>
+        </button>
+        <button
+          id="sound"
+          type="button"
+          aria-label="Весь звук"
+          title="Весь звук"
+          aria-pressed="true"
+        >
+          <svg
+            aria-hidden="true"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12"
+            />
+            <path class="mute-stroke" d="M3 3l18 18" />
+          </svg>
+        </button>
+        <button
+          id="music"
+          type="button"
+          aria-label="Музыка"
+          title="Музыка"
+          aria-pressed="true"
+        >
+          <svg
+            aria-hidden="true"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M10 18V5l10-2v13M10 9l10-2" />
+            <ellipse cx="7" cy="18" rx="3" ry="2" />
+            <ellipse cx="17" cy="16" rx="3" ry="2" />
+            <path class="mute-stroke" d="M3 3l18 18" />
+          </svg>
+        </button>
+      </div>
       <section class="arena" aria-label="Игровое поле">
         <canvas width="1200" height="540" aria-hidden="true"></canvas>
         <img id="hero-sprite" src="/login/login-character.png" alt="" hidden />
@@ -98,77 +169,6 @@
         <h1>Поверните телефон</h1>
         <p>Для игры нужен горизонтальный экран.</p>
       </section>
-      <div id="audio-controls" role="group" aria-label="Управление игрой">
-        <button
-          id="pause"
-          type="button"
-          aria-label="Пауза"
-          title="Пауза"
-          aria-keyshortcuts="Escape"
-          hidden
-        >
-          <svg
-            aria-hidden="true"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <path d="M9 5v14m6-14v14" />
-          </svg>
-        </button>
-        <button
-          id="sound"
-          type="button"
-          aria-label="Весь звук"
-          title="Весь звук"
-          aria-pressed="true"
-        >
-          <svg
-            aria-hidden="true"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M3 9h4l5-4v14l-5-4H3zM16 9a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12"
-            />
-            <path class="mute-stroke" d="M3 3l18 18" />
-          </svg>
-        </button>
-        <button
-          id="music"
-          type="button"
-          aria-label="Музыка"
-          title="Музыка"
-          aria-pressed="true"
-        >
-          <svg
-            aria-hidden="true"
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M10 18V5l10-2v13M10 9l10-2" />
-            <ellipse cx="7" cy="18" rx="3" ry="2" />
-            <ellipse cx="17" cy="16" rx="3" ry="2" />
-            <path class="mute-stroke" d="M3 3l18 18" />
-          </svg>
-        </button>
-      </div>
     </main>
   </body>
 </html>
