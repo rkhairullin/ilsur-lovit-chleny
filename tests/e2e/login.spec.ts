@@ -23,6 +23,7 @@ for (const viewport of [
       .getByLabel("Пароль (знают все четкие пацаны)")
       .fill("browser-test-password");
     await page.getByLabel("Пароль (знают все четкие пацаны)").press("Enter");
+    await expect(page).toHaveURL(/\/$/);
     const player = await (await page.request.get("/api/session")).json();
     expect(player.nickname).toBe(nickname);
     await page.reload();

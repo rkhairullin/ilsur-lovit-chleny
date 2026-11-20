@@ -228,11 +228,8 @@ test("disco layers share the arena crop and respect reduced motion", async ({
   ]) {
     await page.setViewportSize(viewport);
     await expect(arena).toBeInViewport();
-    await expect(arena).toHaveCSS("background-size", "cover, cover, cover");
-    await expect(arena).toHaveCSS(
-      "background-position",
-      "50% 0%, 50% 0%, 50% 0%",
-    );
+    await expect(arena).toHaveCSS("background-size", "cover");
+    await expect(arena).toHaveCSS("background-position", "50% 0%");
     await expect(arena).toHaveCSS(
       "background-image",
       /disco-ball-.*disco-crowd-.*disco-floor-clean-/,
