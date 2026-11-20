@@ -31,6 +31,15 @@ const round = new Round();
 const ready = document.querySelector<HTMLElement>("#ready")!;
 const lost = document.querySelector<HTMLElement>("#lost")!;
 const start = document.querySelector<HTMLButtonElement>("#start")!;
+const mobileBrowser = /Android|iPhone|iPod/i.test(navigator.userAgent);
+const iphone = /iPhone|iPod/i.test(navigator.userAgent);
+const fullscreenHint = document.querySelector<HTMLElement>("#fullscreen-hint")!;
+fullscreenHint.hidden =
+  !iphone ||
+  document.fullscreenEnabled ||
+  matchMedia("(display-mode: standalone), (display-mode: fullscreen)")
+    .matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
 const restart = document.querySelector<HTMLButtonElement>("#restart")!;
 const resultStatus = document.querySelector<HTMLElement>("#result-status")!;
 const retryResult = document.querySelector<HTMLButtonElement>("#retry-result")!;
@@ -214,6 +223,15 @@ function scheduleFrame() {
 function begin() {
   if (document.hidden || portraitPhone.matches || round.state === "playing")
     return;
+  if (
+    mobileBrowser &&
+    document.fullscreenEnabled &&
+    !document.fullscreenElement
+  ) {
+    void document.documentElement.requestFullscreen().catch(() => {
+      // The round can still run if the browser declines fullscreen.
+    });
+  }
   const key = roundKey();
   currentRound = { key, started: sendRound(key, {}) };
   round.start();
