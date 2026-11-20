@@ -1,7 +1,16 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { GameSound } from "../../client/games/ilsur-lovit-chleny/sound.js";
+import {
+  GameSound,
+  type Reaction,
+} from "../../client/games/ilsur-lovit-chleny/sound.js";
 
-function setup(stored: string | null = null) {
+import { BackgroundMusic } from "../../client/shared/music/player.js";
+
+function setup(
+  stored: string | null = null,
+  music?: BackgroundMusic,
+  effects?: Partial<Record<Reaction, string>>,
+) {
   const button = Object.assign(new EventTarget(), { setAttribute: vi.fn() });
   const storage = {
     getItem: vi.fn(() => stored),
@@ -34,7 +43,11 @@ function setup(stored: string | null = null) {
   });
   vi.stubGlobal("localStorage", storage);
   vi.stubGlobal("AudioContext", context);
-  const sound = new GameSound(button as unknown as HTMLButtonElement);
+  const sound = new GameSound(
+    button as unknown as HTMLButtonElement,
+    music,
+    effects,
+  );
   const toggle = () => button.dispatchEvent(new Event("click"));
   return { button, sound, storage, gain, oscillator, audio, context, toggle };
 }
@@ -103,4 +116,79 @@ test("blocked storage, unavailable audio and failed resume do not block the game
   await Promise.resolve();
   expect(() => button.dispatchEvent(new Event("click"))).not.toThrow();
   expect(button.setAttribute).toHaveBeenLastCalledWith("aria-pressed", "false");
+});
+
+test("the sound button controls music only after a round has started", () => {
+  const music = new BackgroundMusic([]);
+  const start = vi.spyOn(music, "start");
+  const pause = vi.spyOn(music, "pause");
+  const { toggle, sound } = setup("off", music);
+
+  toggle();
+  expect(start).not.toHaveBeenCalled();
+  toggle();
+  sound.startMusic();
+  expect(start).not.toHaveBeenCalled();
+  toggle();
+  expect(start).toHaveBeenCalledTimes(1);
+  toggle();
+  expect(pause).toHaveBeenCalledTimes(2);
+  toggle();
+  sound.startMusic();
+  expect(start).toHaveBeenCalledTimes(3);
+});
+
+test("pausing gameplay stops music until gameplay resumes, regardless of sound toggles", () => {
+  const music = new BackgroundMusic([]);
+  const start = vi.spyOn(music, "start");
+  const pause = vi.spyOn(music, "pause");
+  const { toggle, sound } = setup(null, music);
+  sound.startMusic();
+  expect(start).toHaveBeenCalledTimes(1);
+  sound.stopMusic();
+  expect(pause).toHaveBeenCalledTimes(1);
+  toggle();
+  toggle();
+  expect(start).toHaveBeenCalledTimes(1);
+  sound.startMusic();
+  expect(start).toHaveBeenCalledTimes(2);
+});
+
+test("plays MP3 effects repeatedly and silences them immediately when muted", async () => {
+  const catchEffect = {
+    currentTime: 2,
+    play: vi.fn(async () => {}),
+    pause: vi.fn(),
+  };
+  const missEffect = {
+    currentTime: 1,
+    play: vi.fn(async () => {}),
+    pause: vi.fn(),
+  };
+  const audio = vi.fn(function (url: string) {
+    return url === "/catch.mp3" ? catchEffect : missEffect;
+  });
+  vi.stubGlobal("Audio", audio);
+  const { sound, toggle, oscillator } = setup(null, undefined, {
+    catch: "/catch.mp3",
+    miss: "/miss.mp3",
+  });
+  sound.activate();
+  catchEffect.play.mockRejectedValueOnce(new Error("blocked"));
+  sound.play("catch");
+  await Promise.resolve();
+  sound.play("catch");
+  sound.play("miss");
+  expect(audio.mock.calls).toEqual([["/catch.mp3"], ["/miss.mp3"]]);
+  expect(catchEffect.currentTime).toBe(0);
+  expect(catchEffect.play).toHaveBeenCalledTimes(2);
+  expect(missEffect.play).toHaveBeenCalledTimes(1);
+  expect(oscillator.start).not.toHaveBeenCalled();
+  sound.play("defeat");
+  expect(oscillator.start).toHaveBeenCalledTimes(3);
+  toggle();
+  expect(catchEffect.pause).toHaveBeenCalledTimes(1);
+  expect(missEffect.pause).toHaveBeenCalledTimes(1);
+  sound.play("miss");
+  expect(missEffect.play).toHaveBeenCalledTimes(1);
 });

@@ -1,3 +1,5 @@
+import type { BackgroundMusic } from "../../shared/music/player.js";
+
 export type Reaction = "catch" | "miss" | "defeat";
 
 const preference = "ilsur-arcade-sound";
@@ -11,7 +13,14 @@ export class GameSound {
   private enabled = true;
   private output: { context: AudioContext; volume: GainNode } | undefined;
 
-  constructor(private readonly button: HTMLButtonElement) {
+  private readonly samples = new Map<Reaction, HTMLAudioElement>();
+  private musicActive = false;
+
+  constructor(
+    private readonly button: HTMLButtonElement,
+    private readonly music?: BackgroundMusic,
+    private readonly effects: Partial<Record<Reaction, string>> = {},
+  ) {
     try {
       this.enabled = localStorage.getItem(preference) !== "off";
     } catch {
@@ -27,7 +36,21 @@ export class GameSound {
         // Keep the selection for the current page.
       }
       this.activate();
+      if (!this.enabled) {
+        this.music?.pause();
+        for (const sample of this.samples.values()) sample.pause();
+      } else if (this.musicActive) this.music?.start();
     });
+  }
+
+  startMusic() {
+    this.musicActive = true;
+    if (this.enabled) this.music?.start();
+  }
+
+  stopMusic() {
+    this.musicActive = false;
+    this.music?.pause();
   }
 
   activate() {
@@ -46,12 +69,18 @@ export class GameSound {
   }
 
   play(reaction: Reaction) {
-    if (
-      !this.enabled ||
-      !this.output ||
-      this.output.context.state !== "running"
-    )
+    if (!this.enabled) return;
+    const file = this.effects[reaction];
+    if (file) {
+      const sample = this.samples.get(reaction) ?? new Audio(file);
+      this.samples.set(reaction, sample);
+      sample.currentTime = 0;
+      void sample.play().catch(() => {
+        // The round continues if the browser blocks an effect.
+      });
       return;
+    }
+    if (!this.output || this.output.context.state !== "running") return;
     const { context, volume } = this.output;
     const firstBeat = context.currentTime;
 

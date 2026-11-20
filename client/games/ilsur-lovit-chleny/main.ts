@@ -1,3 +1,7 @@
+import catchEffect from "./assets/sounds/catch.mp3?url";
+import missEffect from "./assets/sounds/miss.mp3?url";
+import { BackgroundMusic } from "../../shared/music/player.js";
+import { musicTracks } from "../../shared/music/playlist.js";
 import { GameInput, laneForKey, type Lane } from "./input.js";
 import { Round, goldenBonus, missLimit } from "./round.js";
 import { drawScene } from "./scene.js";
@@ -43,7 +47,10 @@ const cannonSprite =
   document.querySelector<HTMLImageElement>("#cannon-sprite")!;
 const reaction = document.querySelector<HTMLElement>("#reaction")!;
 const soundButton = document.querySelector<HTMLButtonElement>("#sound")!;
-const sound = new GameSound(soundButton);
+const sound = new GameSound(soundButton, new BackgroundMusic(musicTracks), {
+  catch: catchEffect,
+  miss: missEffect,
+});
 const reactionText = {
   catch: "Отсосал",
   miss: "Лох! Пидр!",
@@ -130,6 +137,7 @@ function update() {
   previousTime = now;
   if (lastReaction && now >= reactionUntil) clearReaction();
   if (gameHasEnded()) {
+    sound.stopMusic();
     react("defeat");
     input.pause();
     render();
@@ -164,6 +172,7 @@ function begin() {
 }
 
 function continuePlay() {
+  sound.startMusic();
   sound.activate();
   input.resume(false);
   previousTime = performance.now();
@@ -210,6 +219,7 @@ function react(kind: Reaction, text = reactionText[kind]) {
 }
 
 function stop() {
+  sound.stopMusic();
   swallow = undefined;
   round.pause();
   input.pause();
