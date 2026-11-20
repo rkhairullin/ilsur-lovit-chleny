@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { devices, expect, test } from "@playwright/test";
 
 const path = "/ilsur-lovit-chleny/instructions";
 
@@ -40,9 +40,11 @@ for (const viewport of [
       `instructions-${viewport.width}x${viewport.height}.png`,
     );
 
-    await page.evaluate(() =>
-      window.scrollTo(0, document.documentElement.scrollHeight),
-    );
+    await page.evaluate(() => {
+      const instructions = document.querySelector("main")!;
+      instructions.scrollTop = instructions.scrollHeight;
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
     await expect(start).toBeInViewport({ ratio: 1 });
     await start.focus();
     await expect(start).toBeFocused();
@@ -76,4 +78,46 @@ test("instructions can return to the catalog", async ({ page }) => {
   await page.goto(path);
   await page.getByRole("link", { name: "В каталог" }).click();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("touch starts the game after scrolling the instructions on a phone", async ({
+  browser,
+}) => {
+  const phone = devices["iPhone 13"];
+  const context = await browser.newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: phone.viewport,
+    userAgent: phone.userAgent,
+  });
+  try {
+    const page = await context.newPage();
+    await page.request.post("/login", {
+      form: { nickname: "Игрок", password: "browser-test-password" },
+    });
+    await page.goto(path);
+    const start = page.getByRole("link", { name: "Начать напихивать" });
+    await expect(start).toBeInViewport({ ratio: 1 });
+    const beforeScroll = await start.boundingBox();
+    const instructions = page.getByRole("main");
+    await instructions.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect
+      .poll(() => instructions.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    expect(await start.boundingBox()).toEqual(beforeScroll);
+    await start.tap();
+    await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/$/);
+    await expect(
+      page.getByRole("heading", { name: "Поверните телефон" }),
+    ).toBeVisible();
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(page.getByRole("main")).toHaveAttribute(
+      "data-state",
+      "playing",
+    );
+  } finally {
+    await context.close();
+  }
 });
