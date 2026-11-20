@@ -25,9 +25,11 @@ test("orders tracks by name, starts with the first, and wraps after the last", (
   expect(createAudio).not.toHaveBeenCalled();
   music.start();
   expect(audio.src).toBe("/first");
+  expect(audio.volume).toBe(0.5);
   expect(audio.play).toHaveBeenCalledTimes(1);
   audio.dispatchEvent(new Event("ended"));
   expect(audio.src).toBe("/second");
+  expect(audio.volume).toBe(0.5);
   music.pause();
   expect(audio.pause).toHaveBeenCalledTimes(1);
   audio.dispatchEvent(new Event("ended"));

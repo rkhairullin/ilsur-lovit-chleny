@@ -15,7 +15,7 @@ export class BackgroundMusic {
     }
 
     const audio = new Audio(track);
-    audio.volume = 0.35;
+    audio.volume = 0.5;
     audio.addEventListener("ended", () => {
       this.index = (this.index + 1) % this.tracks.length;
       audio.src = this.tracks[this.index]!;

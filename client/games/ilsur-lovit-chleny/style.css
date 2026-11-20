@@ -33,7 +33,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding-right: 50px;
+  padding-inline-end: calc(3 * 44px + 3 * 6px);
 }
 .hud div {
   flex: 1 1 auto;
@@ -154,17 +154,35 @@ canvas {
   text-decoration: none;
 }
 
-#sound {
+#audio-controls {
   position: absolute;
   top: max(8px, env(safe-area-inset-top));
   right: max(10px, env(safe-area-inset-right));
   z-index: 2;
-  font-size: 1.4rem;
+  display: flex;
+  gap: 6px;
 }
 
-#sound[aria-pressed="false"] span {
-  opacity: 0.6;
-  text-decoration: line-through;
+#audio-controls button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+
+#audio-controls button[aria-pressed="false"] {
+  background: #221237;
+  color: #cfb6df;
+}
+
+#audio-controls button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#audio-controls button[aria-pressed="true"] .mute-stroke {
+  display: none;
 }
 
 .reaction {

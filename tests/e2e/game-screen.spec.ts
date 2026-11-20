@@ -362,7 +362,7 @@ test("sound preference persists and reduced motion removes reaction animation", 
   });
   await page.clock.install();
   await openGame(page);
-  const sound = page.getByRole("button", { name: "Звук" });
+  const sound = page.getByRole("button", { name: "Весь звук" });
   await expect(sound).toHaveAttribute("aria-pressed", "true");
   await sound.click();
   await page.reload();
@@ -501,6 +501,12 @@ for (const capture of [false, true]) {
         await expect(page.locator("#misses")).toHaveText("0 / 6");
       }
       await expect(page.locator("#score")).toHaveText(score!);
+      const root = page.locator("html");
+      if (capture) {
+        await expect(root).toHaveAttribute("data-golden-sound", "played");
+      } else {
+        await expect(root).not.toHaveAttribute("data-golden-sound", "played");
+      }
       break;
     }
   });
@@ -516,6 +522,12 @@ for (const capture of [false, true]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.addInitScript(() => {
       Math.random = () => 0;
+      window.Audio = class extends Audio {
+        override async play() {
+          if (/\/rooster_crowing-[^/]+\.mp3$/.test(this.src))
+            document.documentElement.dataset.goldenSound = "played";
+        }
+      };
     });
     await page.clock.install();
     await page.clock.pauseAt(new Date(Date.now() + 1000));

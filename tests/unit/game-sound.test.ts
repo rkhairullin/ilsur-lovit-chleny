@@ -1,19 +1,23 @@
 import { afterEach, expect, test, vi } from "vitest";
-import {
-  GameSound,
-  type Reaction,
-} from "../../client/games/ilsur-lovit-chleny/sound.js";
+import { GameSound } from "../../client/games/ilsur-lovit-chleny/sound.js";
 
 import { BackgroundMusic } from "../../client/shared/music/player.js";
 
 function setup(
   stored: string | null = null,
   music?: BackgroundMusic,
-  effects?: Partial<Record<Reaction, string>>,
+  effects?: ConstructorParameters<typeof GameSound>[3],
+  storedMusic: string | null = null,
 ) {
   const button = Object.assign(new EventTarget(), { setAttribute: vi.fn() });
+  const musicButton = Object.assign(new EventTarget(), {
+    setAttribute: vi.fn(),
+    disabled: false,
+  });
   const storage = {
-    getItem: vi.fn(() => stored),
+    getItem: vi.fn((key: string) =>
+      key === "ilsur-arcade-music" ? storedMusic : stored,
+    ),
     setItem: vi.fn(),
   };
   const gain = {
@@ -45,11 +49,24 @@ function setup(
   vi.stubGlobal("AudioContext", context);
   const sound = new GameSound(
     button as unknown as HTMLButtonElement,
+    musicButton as unknown as HTMLButtonElement,
     music,
     effects,
   );
   const toggle = () => button.dispatchEvent(new Event("click"));
-  return { button, sound, storage, gain, oscillator, audio, context, toggle };
+  const toggleMusic = () => musicButton.dispatchEvent(new Event("click"));
+  return {
+    button,
+    musicButton,
+    sound,
+    storage,
+    gain,
+    oscillator,
+    audio,
+    context,
+    toggle,
+    toggleMusic,
+  };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -65,6 +82,7 @@ test("opens sound only after activation, respects suspension and plays distinct 
   audio.state = "running";
   for (const [cue, count, lastNote] of [
     ["catch", 2, 880],
+    ["golden", 4, 1568],
     ["miss", 2, 196],
     ["defeat", 3, 175],
   ] as const) {
@@ -90,6 +108,7 @@ test("reads and writes mute, immediately silences active cues, and reuses audio"
   toggle();
   expect(gain.gain.value).toBe(0);
   sound.play("miss");
+  sound.play("golden");
   expect(audio.createOscillator).toHaveBeenCalledTimes(count);
   expect(storage.setItem).toHaveBeenLastCalledWith("ilsur-arcade-sound", "off");
   toggle();
@@ -110,7 +129,10 @@ test("blocked storage, unavailable audio and failed resume do not block the game
     throw Error("unavailable");
   });
   audio.resume.mockRejectedValueOnce(Error("blocked"));
-  const sound = new GameSound(button as unknown as HTMLButtonElement);
+  const sound = new GameSound(
+    button as unknown as HTMLButtonElement,
+    button as unknown as HTMLButtonElement,
+  );
   expect(() => sound.activate()).not.toThrow();
   expect(() => sound.activate()).not.toThrow();
   await Promise.resolve();
@@ -165,13 +187,24 @@ test("plays MP3 effects repeatedly and silences them immediately when muted", as
     play: vi.fn(async () => {}),
     pause: vi.fn(),
   };
+  const goldenEffect = {
+    currentTime: 1,
+    play: vi.fn(async () => {}),
+    pause: vi.fn(),
+  };
   const audio = vi.fn(function (url: string) {
-    return url === "/catch.mp3" ? catchEffect : missEffect;
+    return samples[url as keyof typeof samples];
   });
+  const samples = {
+    "/catch.mp3": catchEffect,
+    "/miss.mp3": missEffect,
+    "/rooster_crowing.mp3": goldenEffect,
+  };
   vi.stubGlobal("Audio", audio);
   const { sound, toggle, oscillator } = setup(null, undefined, {
     catch: "/catch.mp3",
     miss: "/miss.mp3",
+    golden: "/rooster_crowing.mp3",
   });
   sound.activate();
   catchEffect.play.mockRejectedValueOnce(new Error("blocked"));
@@ -179,7 +212,14 @@ test("plays MP3 effects repeatedly and silences them immediately when muted", as
   await Promise.resolve();
   sound.play("catch");
   sound.play("miss");
-  expect(audio.mock.calls).toEqual([["/catch.mp3"], ["/miss.mp3"]]);
+  sound.play("golden");
+  expect(audio.mock.calls).toEqual([
+    ["/catch.mp3"],
+    ["/miss.mp3"],
+    ["/rooster_crowing.mp3"],
+  ]);
+  expect(goldenEffect.currentTime).toBe(0);
+  expect(goldenEffect.play).toHaveBeenCalledTimes(1);
   expect(catchEffect.currentTime).toBe(0);
   expect(catchEffect.play).toHaveBeenCalledTimes(2);
   expect(missEffect.play).toHaveBeenCalledTimes(1);
@@ -189,6 +229,43 @@ test("plays MP3 effects repeatedly and silences them immediately when muted", as
   toggle();
   expect(catchEffect.pause).toHaveBeenCalledTimes(1);
   expect(missEffect.pause).toHaveBeenCalledTimes(1);
+  expect(goldenEffect.pause).toHaveBeenCalledTimes(1);
+  sound.play("golden");
+  expect(goldenEffect.play).toHaveBeenCalledTimes(1);
   sound.play("miss");
   expect(missEffect.play).toHaveBeenCalledTimes(1);
+});
+
+test("music preference survives master mute while game effects remain available", () => {
+  const music = new BackgroundMusic([]);
+  const start = vi.spyOn(music, "start");
+  const pause = vi.spyOn(music, "pause");
+  const { sound, storage, toggle, toggleMusic, musicButton, oscillator } =
+    setup(null, music, undefined, "off");
+  sound.activate();
+  sound.startMusic();
+  expect(start).not.toHaveBeenCalled();
+  expect(musicButton.setAttribute).toHaveBeenLastCalledWith(
+    "aria-pressed",
+    "false",
+  );
+  sound.play("catch");
+  expect(oscillator.start).toHaveBeenCalledTimes(2);
+  toggleMusic();
+  expect(start).toHaveBeenCalledTimes(1);
+  toggleMusic();
+  expect(pause).toHaveBeenCalledTimes(1);
+  expect(storage.setItem).toHaveBeenLastCalledWith("ilsur-arcade-music", "off");
+  toggle();
+  expect(musicButton.disabled).toBe(true);
+  toggleMusic();
+  expect(storage.setItem).toHaveBeenLastCalledWith("ilsur-arcade-sound", "off");
+  toggle();
+  expect(musicButton.disabled).toBe(false);
+  expect(start).toHaveBeenCalledTimes(1);
+  sound.stopMusic();
+  toggleMusic();
+  expect(start).toHaveBeenCalledTimes(1);
+  sound.startMusic();
+  expect(start).toHaveBeenCalledTimes(2);
 });

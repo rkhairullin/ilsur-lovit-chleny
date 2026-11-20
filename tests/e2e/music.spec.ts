@@ -35,9 +35,11 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
   await page.clock.install();
   await page.goto("/ilsur-lovit-chleny/");
   const music = page.locator("#music-probe");
-  const sound = page.getByRole("button", { name: "Звук" });
+  const musicToggle = page.getByRole("button", { name: "Музыка" });
+  const sound = page.getByRole("button", { name: "Весь звук" });
   await expect(music).toHaveCount(0);
   await sound.click();
+  await expect(musicToggle).toBeDisabled();
   await page.getByRole("button", { name: "Начать игру" }).click();
   await expect(music).toHaveCount(0);
   await sound.click();
@@ -47,6 +49,7 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
     return;
   }
 
+  await expect(music).toHaveJSProperty("volume", 0.5);
   for (const track of [...tracks, tracks[0]!]) {
     const src = await music.getAttribute("src");
     expect(src).toBeTruthy();
@@ -83,12 +86,24 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
   await expect(music).toHaveAttribute("data-playing", "true");
   await expect(music).toHaveAttribute("src", pausedTrack!);
 
+  await musicToggle.focus();
+  await page.keyboard.press("Space");
+  await expect(musicToggle).toHaveAttribute("aria-pressed", "false");
+  await expect(music).toHaveAttribute("data-playing", "false");
+  await sound.click();
+  await expect(musicToggle).toBeDisabled();
+  await sound.click();
+  await expect(musicToggle).toBeEnabled();
+  await expect(musicToggle).toHaveAttribute("aria-pressed", "false");
+  await expect(music).toHaveAttribute("data-playing", "false");
+
   await page.clock.fastForward(1000);
   await page.keyboard.press("q");
   await expect(page.locator("#catch-probe")).toHaveAttribute(
     "data-playing",
     "true",
   );
+  await expect(page.locator("#catch-probe")).toHaveJSProperty("volume", 1);
   await page.clock.runFor(5000);
   await expect(page.locator("#miss-probe")).toHaveAttribute(
     "data-playing",
@@ -104,5 +119,43 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
   await page.reload();
   await expect(music).toHaveCount(0);
   await page.getByRole("button", { name: "Начать игру" }).click();
+  await expect(music).toHaveCount(0);
+  await expect(musicToggle).toHaveAttribute("aria-pressed", "false");
+  await musicToggle.click();
   await expect(music).toHaveAttribute("data-playing", "true");
 });
+
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 844, height: 390 },
+]) {
+  test(`audio and pause buttons align at ${viewport.width} × ${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.request.post("/login", {
+      form: { nickname: "Игрок", password: "browser-test-password" },
+    });
+    await page.goto("/ilsur-lovit-chleny/");
+    const pause = page.getByRole("button", { name: "Пауза" });
+    await expect(pause).toBeHidden();
+    await page.getByRole("button", { name: "Начать игру" }).click();
+    const group = page.getByRole("group", { name: "Управление игрой" });
+    const bounds = await group.getByRole("button").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const { x, y, width, height } = button.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    );
+    expect(bounds).toHaveLength(3);
+    for (const [index, box] of bounds.entries()) {
+      expect(box.width).toBe(44);
+      expect(box.height).toBe(44);
+      expect(box.y).toBe(bounds[0]!.y);
+      expect(box.x).toBe(bounds[0]!.x + index * 50);
+    }
+    await pause.click();
+    await expect(pause).toBeHidden();
+    await expect(group.getByRole("button", { name: "Музыка" })).toBeVisible();
+  });
+}
