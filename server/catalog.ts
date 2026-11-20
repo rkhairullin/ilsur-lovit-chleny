@@ -1,13 +1,15 @@
+import type { RecordEntry } from "./leaderboard.js";
+
 type GameCard = {
   title: string;
   href: string;
   image: string;
   imageAlt: string;
   description: string;
-  rating: string;
+  id: string;
 };
 
-const games: GameCard[] = [
+export const games: GameCard[] = [
   {
     title: "Ильсур ловит члены",
     href: "/ilsur-lovit-chleny/",
@@ -15,7 +17,7 @@ const games: GameCard[] = [
     imageAlt: "Скриншот игрового экрана во время полёта банана",
     description:
       "Диско-пушки палят членами, а у Ильсура опять руки заняты. Помоги ему поймать их ртом, держи темп и докажи, что у Ильсура глубокая глотка",
-    rating: "Рейтинг скоро появится",
+    id: "ilsur-lovit-chleny",
   },
 ];
 
@@ -30,7 +32,45 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => entities[character]!);
 }
 
-export function renderCatalog(nickname: string) {
+function renderRecords(records: RecordEntry[], withDate = false) {
+  if (!records.length) return "<p>Пока нет результатов</p>";
+  return `<ol>${records.map((record) => `<li>${escapeHtml(record.nickname)} · ${record.score} очков · ${record.caught} членов напихано${withDate ? ` · ${new Date(record.finishedAt).toISOString().slice(0, 10)}` : ""}</li>`).join("")}</ol>`;
+}
+
+export function renderRating(
+  game: GameCard,
+  records: RecordEntry[],
+  personal: RecordEntry | undefined,
+  totals: { games: number; score: number; caught: number },
+) {
+  return `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Рейтинг · ${game.title}</title>
+<link rel="stylesheet" href="/catalog/catalog.css">
+</head>
+<body>
+<main class="catalog rating-page">
+<nav><a class="catalog-button" href="/">Каталог игр</a> <a class="catalog-button" href="${game.href}">Играть</a></nav>
+<h1>Рейтинг · ${game.title}</h1>
+<section><h2>Топ-20</h2>${renderRecords(records, true)}</section>
+<section><h2>Твоё место</h2><p>${personal ? `${personal.place} · ${personal.score} очков · ${personal.caught} членов напихано` : "У тебя пока нет результата"}</p></section>
+<section><h2>За всё время</h2><dl>
+<dt>Сыграно партий</dt><dd>${totals.games}</dd>
+<dt>Очков</dt><dd>${totals.score}</dd>
+<dt>Членов напихано</dt><dd>${totals.caught}</dd>
+</dl></section>
+</main>
+</body>
+</html>`;
+}
+
+export function renderCatalog(
+  nickname: string,
+  top: (game: string) => RecordEntry[],
+) {
   const cards = games
     .map(
       (game) => `<article class="game-card">
@@ -39,10 +79,9 @@ export function renderCatalog(nickname: string) {
     <span class="game-card__play-indicator" aria-hidden="true">▶</span>
   </a>
   <div class="game-card__body">
-    <p class="game-card__eyebrow">АРКАДА · 1 ИГРОК</p>
     <h2>${game.title}</h2>
     <p class="game-card__description">${game.description}</p>
-    <p class="game-card__rating">${game.rating}</p>
+    <div class="game-card__rating"><h3>Топ-5</h3>${renderRecords(top(game.id))}<a href="${game.href}rating">Полный рейтинг</a></div>
     <a class="catalog-button" href="${game.href}">Начать петушить</a>
   </div>
 </article>`,

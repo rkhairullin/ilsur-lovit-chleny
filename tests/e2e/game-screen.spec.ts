@@ -2,6 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 async function openGame(page: Page) {
+  await page.route("**/api/games/*/rounds/*", (route) =>
+    route.fulfill({ status: 204 }),
+  );
   await page.request.post("/login", {
     form: { nickname: "Игрок теста", password: "browser-test-password" },
   });
@@ -256,6 +259,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
   await expect(page.locator("#final-score")).toHaveText("10");
   await page.keyboard.press("q");
   await expect(page.locator("#final-score")).toHaveText("10");
+  await expect(page.getByText("Результат сохранён")).toBeVisible();
   await page.getByRole("button", { name: "Играть снова" }).click();
   await expect(page.locator("#score")).toHaveText("0");
   await expect(page.locator("#streak")).toHaveText("0");
@@ -289,6 +293,7 @@ test("@visual start, banana in flight and defeat", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Играть снова" }),
   ).toBeFocused();
+  await expect(page.getByText("Результат сохранён")).toBeVisible();
   await expect.soft(page).toHaveScreenshot("round-lost.png");
 });
 
