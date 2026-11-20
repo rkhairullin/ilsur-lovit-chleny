@@ -51,7 +51,10 @@ function loginPage(
 <main class="login">
 <h1>Ильсур - пИтух</h1>
 <div class="login-stage">
-<img class="login-character" src="/login/login-character.png" width="1194" height="1317" alt="Ильсур в образе петуха">
+<picture class="login-portrait">
+<source media="(max-width: 900px)" srcset="/login/login-character-mobile.webp">
+<img class="login-character" src="/login/login-character.webp" width="1194" height="1317" alt="Ильсур в образе петуха">
+</picture>
 <div class="login-panel">
 ${message ? `<p role="alert">${message}</p>` : ""}
 <form method="post" action="/login">

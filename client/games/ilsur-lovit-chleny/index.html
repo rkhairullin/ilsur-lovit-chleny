@@ -93,7 +93,13 @@
       </div>
       <section class="arena" aria-label="Игровое поле">
         <canvas width="1200" height="540" aria-hidden="true"></canvas>
-        <img id="hero-sprite" src="/login/login-character.png" alt="" hidden />
+        <picture hidden>
+          <source
+            media="(max-width: 900px)"
+            srcset="/login/login-character-mobile.webp"
+          />
+          <img id="hero-sprite" src="/login/login-character.webp" alt="" />
+        </picture>
         <img id="banana-sprite" src="./assets/banana.png" alt="" hidden />
         <img
           id="golden-sprite"

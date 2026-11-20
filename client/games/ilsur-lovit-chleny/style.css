@@ -78,6 +78,19 @@ button:focus-visible {
       url("./assets/disco-floor-clean.webp");
   }
 }
+@media (max-width: 900px) {
+  .arena {
+    background-image: url("./assets/disco-floor-mobile.webp");
+  }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+  .arena {
+    background-image:
+      url("./assets/disco-ball-mobile.webp"),
+      url("./assets/disco-crowd-mobile.webp"),
+      url("./assets/disco-floor-clean-mobile.webp");
+  }
+}
 canvas {
   display: block;
   width: 100%;
@@ -260,7 +273,15 @@ canvas {
   #lost {
     background:
       linear-gradient(90deg, #130a2455, #130a24f7 44%),
-      url("/login/login-character.png") left 7% bottom / auto 88% no-repeat,
+      url("/login/login-character.webp") left 7% bottom / auto 88% no-repeat,
       #130a24f7;
+  }
+}
+
+@media (640px <= width <= 900px) {
+  #lost {
+    background-image:
+      linear-gradient(90deg, #130a2455, #130a24f7 44%),
+      url("/login/login-character-mobile.webp");
   }
 }

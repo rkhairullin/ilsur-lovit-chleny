@@ -47,6 +47,10 @@ body {
   margin-inline: auto;
 }
 
+.login-portrait {
+  display: contents;
+}
+
 .login-character {
   display: block;
   width: min(100%, 23rem);

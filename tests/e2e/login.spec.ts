@@ -10,6 +10,19 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     await page.goto("/index.html");
     await expect(page).toHaveURL(/\/login$/);
+    const character = page.locator(".login-character");
+    const mobile = viewport.width <= 900;
+    const characterUrl = new URL(
+      mobile
+        ? "/login/login-character-mobile.webp"
+        : "/login/login-character.webp",
+      page.url(),
+    ).href;
+    await expect(character).toHaveJSProperty("currentSrc", characterUrl);
+    await expect(character).toHaveJSProperty(
+      "naturalWidth",
+      mobile ? 640 : 1194,
+    );
     expect((await page.request.get("/api/session")).status()).toBe(401);
     const nickname = `<Лиса> ${test.info().project.name}-${viewport.width}`;
     await page.getByLabel("Имя свое скажи, если ты мущщщщина").fill(nickname);
@@ -36,6 +49,9 @@ for (const viewport of [
     await page.getByRole("link", { name: "Начать петушить" }).click();
     await page.getByRole("link", { name: "Начать напихивать" }).click();
     await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/$/);
+    const sprite = page.locator("#hero-sprite");
+    await expect(sprite).toHaveJSProperty("currentSrc", characterUrl);
+    await expect(sprite).toHaveJSProperty("naturalWidth", mobile ? 640 : 1194);
     await page.getByRole("button", { name: "Пауза" }).click();
     await expect(page.locator("#player-nickname")).toHaveText(
       `Игрок: ${nickname}`,
@@ -105,7 +121,10 @@ for (const viewport of [
       page.getByRole("heading", { name: "Ильсур - пИтух" }),
     ).toBeVisible();
     const character = page.getByRole("img", { name: "Ильсур в образе петуха" });
-    await expect(character).toHaveJSProperty("naturalWidth", 1194);
+    await expect(character).toHaveJSProperty(
+      "naturalWidth",
+      viewport.width <= 900 ? 640 : 1194,
+    );
 
     await expect(
       page.getByRole("button", { name: "Начать петушить" }),

@@ -239,14 +239,16 @@ test("disco layers share the arena crop and respect reduced motion", async ({
     await expect(arena).toHaveCSS("background-position", "50% 0%");
     await expect(arena).toHaveCSS(
       "background-image",
-      /disco-ball-.*disco-crowd-.*disco-floor-clean-/,
+      viewport.width <= 900
+        ? /disco-ball-mobile-.*disco-crowd-mobile-.*disco-floor-clean-mobile-/
+        : /disco-ball-.*disco-crowd-.*disco-floor-clean-/,
     );
   }
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(arena).toHaveCSS(
     "background-image",
-    /^url\("[^"]*\/disco-floor-[\w-]+\.webp"\)$/,
+    /^url\("[^"]*\/disco-floor-mobile-[\w-]+\.webp"\)$/,
   );
 });
 
@@ -452,7 +454,7 @@ test("missing sprites fall back to readable symbols and the game remains playabl
     };
   });
   await page.route(
-    /\/(?:banana-[\w-]+\.png|login-character\.png|disco-cannon-[\w-]+\.webp)$/,
+    /\/(?:banana-[\w-]+\.png|login-character(?:-mobile)?\.webp|disco-cannon-[\w-]+\.webp)$/,
     (route) => route.abort(),
   );
   await page.clock.install();
@@ -658,3 +660,62 @@ for (const mode of ["allowed", "declined", "iphone", "installed"] as const) {
     await page.close();
   });
 }
+
+test("mobile cold start responds while artwork loads and reports frame intervals", async ({
+  page,
+  browserName,
+}, testInfo) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.request.post("/login", {
+    form: { nickname: "Проверка загрузки", password: "browser-test-password" },
+  });
+
+  if (browserName === "chromium") {
+    const session = await page.context().newCDPSession(page);
+    await session.send("Network.enable");
+    await session.send("Network.setCacheDisabled", { cacheDisabled: true });
+    await session.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 150,
+      downloadThroughput: 125_000,
+      uploadThroughput: 62_500,
+    });
+  }
+
+  await page.goto("/ilsur-lovit-chleny/", { waitUntil: "domcontentloaded" });
+  const game = page.getByRole("main");
+  await expect(game).toHaveAttribute("data-state", "playing");
+  await page.keyboard.down("q");
+  await expect(game).toHaveAttribute("data-position", "upper-left");
+  const firstInputMs = await page.evaluate(() => performance.now());
+  await page.keyboard.up("q");
+  const frames = await page.evaluate(
+    () =>
+      new Promise<number[]>((resolve) => {
+        let previous = 0;
+        const intervals: number[] = [];
+        function record(time: number) {
+          if (previous) intervals.push(time - previous);
+          previous = time;
+          if (intervals.length === 60) resolve(intervals);
+          else requestAnimationFrame(record);
+        }
+        requestAnimationFrame(record);
+      }),
+  );
+  frames.sort((left, right) => left - right);
+  await expect(page.locator("#hero-sprite")).toHaveJSProperty(
+    "naturalWidth",
+    640,
+  );
+  await testInfo.attach("mobile-performance", {
+    contentType: "application/json",
+    body: JSON.stringify({
+      network:
+        browserName === "chromium" ? "1 Mbps, 150 ms latency" : "unthrottled",
+      firstInputMs,
+      frameIntervalP95Ms: frames[56],
+      longestFrameIntervalMs: frames[59],
+    }),
+  });
+});
