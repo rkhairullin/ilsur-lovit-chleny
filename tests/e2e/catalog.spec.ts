@@ -11,16 +11,16 @@ for (const [name, selector] of [
   ["preview image", "Открыть игру Ильсур ловит члены"],
   ["Play button", "Начать петушить"],
 ] as const) {
-  test(`catalog ${name} opens the game in the same session`, async ({
+  test(`catalog ${name} opens instructions and then the game in the same session`, async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await openCatalog(page);
     await page.getByRole("link", { name: selector }).click();
+    await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/instructions$/);
+    await page.getByRole("link", { name: "Начать напихивать" }).click();
     await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/$/);
-    await expect(
-      page.getByRole("button", { name: "Начать игру" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Пауза" })).toBeVisible();
     expect(await (await page.request.get("/api/session")).json()).toMatchObject(
       {
         nickname: "Игрок каталога",

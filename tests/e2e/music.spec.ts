@@ -18,6 +18,8 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
 }) => {
   await page.addInitScript(() => {
     Math.random = () => 0;
+    if (localStorage.getItem("ilsur-arcade-sound") === null)
+      localStorage.setItem("ilsur-arcade-sound", "off");
     window.Audio = class extends Audio {
       constructor(src?: string) {
         super(src);
@@ -44,10 +46,7 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
   const musicToggle = page.getByRole("button", { name: "Музыка" });
   const sound = page.getByRole("button", { name: "Весь звук" });
   await expect(music).toHaveCount(0);
-  await sound.click();
   await expect(musicToggle).toBeDisabled();
-  await page.getByRole("button", { name: "Начать игру" }).click();
-  await expect(music).toHaveCount(0);
   await sound.click();
   await expect(sound).toHaveAttribute("aria-pressed", "true");
   if (tracks.length === 0) {
@@ -124,8 +123,6 @@ test("starts music with the round, follows the playlist, and obeys mute", async 
 
   await page.reload();
   await expect(music).toHaveCount(0);
-  await page.getByRole("button", { name: "Начать игру" }).click();
-  await expect(music).toHaveCount(0);
   await expect(musicToggle).toHaveAttribute("aria-pressed", "false");
   await musicToggle.click();
   await expect(music).toHaveAttribute("data-playing", "true");
@@ -144,8 +141,7 @@ for (const viewport of [
     });
     await page.goto("/ilsur-lovit-chleny/");
     const pause = page.getByRole("button", { name: "Пауза" });
-    await expect(pause).toBeHidden();
-    await page.getByRole("button", { name: "Начать игру" }).click();
+    await expect(pause).toBeVisible();
     const group = page.getByRole("group", { name: "Управление игрой" });
     const bounds = await group.getByRole("button").evaluateAll((buttons) =>
       buttons.map((button) => {
@@ -161,7 +157,7 @@ for (const viewport of [
       expect(box.x).toBe(bounds[0]!.x + index * 50);
     }
     await pause.click();
-    await expect(pause).toBeHidden();
+    await expect(pause).toBeVisible();
     await expect(group.getByRole("button", { name: "Музыка" })).toBeVisible();
   });
 }

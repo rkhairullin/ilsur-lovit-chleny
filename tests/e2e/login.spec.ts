@@ -34,8 +34,8 @@ for (const viewport of [
       `Привет, ${nickname}`,
     );
     await page.getByRole("link", { name: "Начать петушить" }).click();
+    await page.getByRole("link", { name: "Начать напихивать" }).click();
     await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/$/);
-    await page.getByRole("button", { name: "Начать игру" }).click();
     await page.getByRole("button", { name: "Пауза" }).click();
     await expect(page.locator("#player-nickname")).toHaveText(
       `Игрок: ${nickname}`,
@@ -85,7 +85,7 @@ test("direct game visit without a session asks for login then returns to the gam
     .fill("browser-test-password");
   await page.getByRole("button", { name: "Начать петушить" }).click();
   await expect(page).toHaveURL(/\/ilsur-lovit-chleny\/$/);
-  await expect(page.getByRole("button", { name: "Начать игру" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Пауза" })).toBeVisible();
   expect(await (await page.request.get("/api/session")).json()).toMatchObject({
     nickname: "Прямой вход",
   });
@@ -125,7 +125,6 @@ test("@visual player and logout on the mobile pause screen", async ({
     form: { nickname: "Игрок теста", password: "browser-test-password" },
   });
   await page.goto("/ilsur-lovit-chleny/");
-  await page.getByRole("button", { name: "Начать игру" }).click();
   await page.getByRole("button", { name: "Пауза" }).click();
   await expect(page.getByRole("button", { name: "Выйти" })).toBeInViewport();
   await expect(page.locator("#paused")).toHaveScreenshot("pause-844x390.png");

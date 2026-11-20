@@ -161,6 +161,25 @@ canvas {
   text-decoration: none;
 }
 
+#fullscreen-hint {
+  max-width: 34rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+}
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.result-actions .catalog-return {
+  margin-top: 0;
+}
+.result-actions a:focus-visible {
+  outline: 3px solid #ffe796;
+  outline-offset: 3px;
+}
+
 #audio-controls {
   position: absolute;
   top: max(8px, env(safe-area-inset-top));
@@ -238,7 +257,6 @@ canvas {
 }
 
 @media (min-width: 640px) {
-  #ready,
   #lost {
     background:
       linear-gradient(90deg, #130a2455, #130a24f7 44%),

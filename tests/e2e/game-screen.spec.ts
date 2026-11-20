@@ -18,7 +18,6 @@ test("keyboard positions, holding, and pause in the production build", async ({
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1280, height: 720 });
   await openGame(page);
-  await page.getByRole("button", { name: "Начать игру" }).click();
   const game = page.getByRole("main");
   for (const [key, lane] of [
     ["q", "upper-left"],
@@ -66,7 +65,6 @@ test("touch release, multiple pointers and cancellation", async ({
     viewport: { width: 844, height: 390 },
   });
   await openGame(page);
-  await page.getByRole("button", { name: "Начать игру" }).click();
   const game = page.getByRole("main");
   const left = page.getByRole("button", { name: "Слева сверху" });
   const right = page.getByRole("button", { name: "Справа снизу" });
@@ -104,7 +102,7 @@ test("rotation and loss of focus pause and clear input", async ({ page }) => {
     page.getByRole("heading", { name: "Поверните телефон" }),
   ).toBeVisible();
   await page.setViewportSize({ width: 844, height: 390 });
-  await page.getByRole("button", { name: "Начать игру" }).click();
+  await expect(page.getByRole("main")).toHaveAttribute("data-state", "playing");
   await page.keyboard.down("o");
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await expect(page.getByRole("button", { name: "Продолжить" })).toBeVisible();
@@ -135,7 +133,7 @@ test("production API health and deterministic clock and random values", async ({
       Math.random(),
       Math.random(),
     ]),
-  ).toEqual(["2026-01-02T03:04:05.000Z", 0.25, 0.75, 0.5]);
+  ).toEqual(["2026-01-02T03:04:05.000Z", 0.75, 0.5, 0.5]);
 });
 
 for (const viewport of [
@@ -174,6 +172,8 @@ for (const viewport of [
             ),
           )
         : undefined;
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     await openGame(page);
     if (background) {
       expect((await background).ok()).toBe(true);
@@ -189,9 +189,6 @@ for (const viewport of [
         "background-position",
         "50% 0%",
       );
-      await page.clock.install();
-      await page.clock.pauseAt(new Date(Date.now() + 1000));
-      await page.getByRole("button", { name: "Начать игру" }).click();
     }
     await expect(page.getByRole("main")).toHaveAttribute(
       "data-position",
@@ -276,8 +273,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
     );
   const toggleHidden = () =>
     page.evaluate(() => document.dispatchEvent(new Event("test-visibility")));
-  await expect(game).toHaveAttribute("data-state", "ready");
-  await page.getByRole("button", { name: "Начать игру" }).click();
+  await expect(game).toHaveAttribute("data-state", "playing");
   await tick(900);
   await page.keyboard.down("q");
   await page.keyboard.up("q");
@@ -324,9 +320,7 @@ test("@visual start, banana in flight and defeat", async ({ page }) => {
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
   await openGame(page);
-  await expect(page.getByRole("button", { name: "Начать игру" })).toBeVisible();
-  await expect.soft(page).toHaveScreenshot("round-ready.png");
-  await page.getByRole("button", { name: "Начать игру" }).click();
+  await expect(page.getByRole("button", { name: "Пауза" })).toBeVisible();
   await page.clock.fastForward(1469);
   await expect.soft(page).toHaveScreenshot("round-flight.png");
   await page.clock.fastForward(1301);
@@ -379,7 +373,6 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
   await openGame(page);
-  await page.getByRole("button", { name: "Начать игру" }).click();
   const canvas = page.locator("canvas");
   for (let index = 0; index < 16; index++) {
     await page.clock.fastForward(index === 0 ? 600 : 2800);
@@ -421,7 +414,6 @@ test("sound preference persists and reduced motion removes reaction animation", 
   await sound.click();
   await page.reload();
   await expect(sound).toHaveAttribute("aria-pressed", "false");
-  await page.getByRole("button", { name: "Начать игру" }).click();
   await page.clock.fastForward(1000);
   await page.keyboard.press("q");
   const reaction = page.getByRole("status");
@@ -455,7 +447,6 @@ test("missing sprites fall back to readable symbols and the game remains playabl
   );
   await page.clock.install();
   await openGame(page);
-  await page.getByRole("button", { name: "Начать игру" }).click();
   await expect(page.locator("canvas")).toHaveAttribute("data-fallback", "🐓");
   await page.clock.fastForward(1000);
   await expect(page.locator("canvas")).toHaveAttribute("data-fallback", "🍌");
@@ -472,7 +463,6 @@ test("@visual catch and miss on a landscape phone", async ({ page }) => {
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
   await openGame(page);
-  await page.getByRole("button", { name: "Начать игру" }).click();
   await page.clock.fastForward(800);
   await page.keyboard.down("q");
   await expect(page.getByRole("status")).toHaveText("Отсосал");
@@ -492,7 +482,6 @@ test("a large Retina desktop keeps a wide arena and a high-resolution canvas", a
   });
   try {
     await openGame(page);
-    await page.getByRole("button", { name: "Начать игру" }).click();
     const canvas = page.locator("canvas");
     await expect(canvas).toHaveCSS("object-fit", "contain");
     const dimensions = await canvas.evaluate((element: HTMLCanvasElement) => ({
@@ -527,7 +516,6 @@ for (const capture of [false, true]) {
       "naturalWidth",
       0,
     );
-    await page.getByRole("button", { name: "Начать игру" }).click();
 
     let elapsed = 0;
     const sequence = bananaSequence(() => 0.125);
@@ -584,7 +572,6 @@ for (const capture of [false, true]) {
       "naturalWidth",
       0,
     );
-    await page.getByRole("button", { name: "Начать игру" }).click();
     let elapsed = 0;
     for (const item of bananaSequence(() => 0)) {
       const time = item.deadline - 100;
@@ -645,15 +632,15 @@ for (const mode of ["allowed", "declined", "iphone", "installed"] as const) {
     }, mode);
     await openGame(page);
     const hint = page.locator("#fullscreen-hint");
-    if (mode === "iphone") await expect(hint).toBeVisible();
-    else await expect(hint).toBeHidden();
     const root = page.locator("html");
     await expect(root).not.toHaveAttribute("data-fullscreen-requested");
-    await page.getByRole("button", { name: "Начать игру" }).click();
     await expect(page.getByRole("main")).toHaveAttribute(
       "data-state",
       "playing",
     );
+    await page.getByRole("button", { name: "Пауза" }).click();
+    if (mode === "iphone") await expect(hint).toBeVisible();
+    else await expect(hint).toBeHidden();
     if (iphone)
       await expect(root).not.toHaveAttribute("data-fullscreen-requested");
     else

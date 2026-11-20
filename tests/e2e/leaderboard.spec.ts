@@ -37,8 +37,14 @@ test("a completed round survives a network retry and appears in another browser 
       await route.abort();
       await page.unroute("**/api/games/*/rounds/*");
     });
+    const observer = await second.newPage();
+    await observer.request.post("/login", {
+      form: { nickname: "лидер теста", password: "ranking-test" },
+    });
+    await observer.goto("/");
+    await expect(observer.getByText("Пока нет результатов")).toBeVisible();
+
     await page.goto(`${baseURL}/ilsur-lovit-chleny/`);
-    await page.getByRole("button", { name: "Начать игру" }).click();
     await page.clock.fastForward(900);
     await page.keyboard.press("q");
     await expect(page.locator("#caught")).toHaveText("1");
@@ -49,11 +55,7 @@ test("a completed round survives a network retry and appears in another browser 
     await page.getByRole("button", { name: "Повторить сохранение" }).click();
     await expect(page.getByText("Результат сохранён")).toBeVisible();
 
-    const observer = await second.newPage();
-    await observer.request.post("/login", {
-      form: { nickname: "лидер теста", password: "ranking-test" },
-    });
-    await observer.goto("/");
+    await observer.getByRole("button", { name: "Обновить рейтинг" }).click();
     await expect(
       observer.getByText("Лидер теста · 10 очков · 1 членов напихано"),
     ).toBeVisible();
@@ -65,8 +67,15 @@ test("a completed round survives a network retry and appears in another browser 
     expect(
       await observer.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(390);
-    await page.getByRole("link", { name: "Рейтинг игры" }).click();
-    await expect(page.getByRole("heading", { name: "Топ-20" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Рейтинг игры" }),
+    ).toHaveAttribute("href", "./rating");
+    const back = page.locator("#lost").getByRole("link", { name: "В каталог" });
+    await expect(back).toBeInViewport({ ratio: 1 });
+    await back.click();
+    await expect(
+      page.getByRole("button", { name: "Обновить рейтинг" }),
+    ).toBeVisible();
   } finally {
     await second.close();
     await server.close();

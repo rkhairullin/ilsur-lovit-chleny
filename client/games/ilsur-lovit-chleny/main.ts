@@ -28,9 +28,7 @@ const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const input = new GameInput();
 input.pause();
 const round = new Round();
-const ready = document.querySelector<HTMLElement>("#ready")!;
 const lost = document.querySelector<HTMLElement>("#lost")!;
-const start = document.querySelector<HTMLButtonElement>("#start")!;
 const mobileBrowser = /Android|iPhone|iPod/i.test(navigator.userAgent);
 const iphone = /iPhone|iPod/i.test(navigator.userAgent);
 const fullscreenHint = document.querySelector<HTMLElement>("#fullscreen-hint")!;
@@ -65,8 +63,20 @@ const sound = new GameSound(
   new BackgroundMusic(musicTracks),
   { catch: catchEffect, golden: goldenEffect, miss: missEffect },
 );
+const catchPhrases = [
+  "Отсосал",
+  "Взял в рот",
+  "Ммммм",
+  "Вкусненько",
+  "Я минетчик",
+  "Йа пИтух",
+  "Хуй мне в рот",
+  "Хочу ещё",
+  "Ещё хуёв!",
+  "На бис!",
+  "Вот это подача!",
+] as const;
 const reactionText = {
-  catch: "Отсосал",
   miss: "Лох! Пидр!",
   defeat: "Gay over",
 };
@@ -91,6 +101,7 @@ async function sendRound(key: string, body: object) {
       `/api/games/ilsur-lovit-chleny/rounds/${key}`,
       {
         method: "POST",
+        keepalive: true,
         signal: AbortSignal.timeout(8000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -179,7 +190,6 @@ function render() {
   rotate.hidden = !needsRotation;
   audioControls.hidden = needsRotation;
   pause.hidden = round.state !== "playing";
-  ready.hidden = needsRotation || round.state !== "ready";
   paused.hidden = needsRotation || round.state !== "paused";
   lost.hidden = needsRotation || round.state !== "lost";
   hud.inert = arena.inert = needsRotation || round.state !== "playing";
@@ -196,12 +206,12 @@ function update() {
     pendingResult = { score: round.score, caught: round.caught };
     void saveResult();
     sound.stopMusic();
-    react("defeat");
+    react("defeat", reactionText.defeat);
     input.pause();
     render();
     restart.focus();
   } else if (round.missed > previousMisses) {
-    react("miss");
+    react("miss", reactionText.miss);
   }
 }
 
@@ -220,18 +230,31 @@ function scheduleFrame() {
   });
 }
 
+function activateOnFirstInteraction() {
+  const controller = new AbortController();
+  const activate = () => {
+    controller.abort();
+    if (round.state === "playing") {
+      sound.activate();
+      sound.startMusic();
+    }
+    if (
+      mobileBrowser &&
+      document.fullscreenEnabled &&
+      !document.fullscreenElement
+    ) {
+      void document.documentElement.requestFullscreen().catch(() => {
+        // The round can still run if the browser declines fullscreen.
+      });
+    }
+  };
+  const options = { capture: true, signal: controller.signal };
+  addEventListener("click", activate, options);
+  addEventListener("keydown", activate, options);
+}
+
 function begin() {
-  if (document.hidden || portraitPhone.matches || round.state === "playing")
-    return;
-  if (
-    mobileBrowser &&
-    document.fullscreenEnabled &&
-    !document.fullscreenElement
-  ) {
-    void document.documentElement.requestFullscreen().catch(() => {
-      // The round can still run if the browser declines fullscreen.
-    });
-  }
+  if (round.state === "ready") activateOnFirstInteraction();
   const key = roundKey();
   currentRound = { key, started: sendRound(key, {}) };
   round.start();
@@ -256,7 +279,7 @@ function press(source: string, lane: Lane) {
     const progress = round.catchBanana(lane);
     if (progress === "decoy") {
       swallow = undefined;
-      react("miss");
+      react("miss", reactionText.miss);
     } else if (progress) {
       swallow = {
         lane,
@@ -265,7 +288,11 @@ function press(source: string, lane: Lane) {
         golden: progress.golden,
       };
       if (progress.golden) react("catch", `Бонус +${goldenBonus}`, "golden");
-      else react("catch");
+      else
+        react(
+          "catch",
+          catchPhrases[Math.floor(Math.random() * catchPhrases.length)]!,
+        );
     } else if (swallow?.lane !== lane) {
       swallow = undefined;
     }
@@ -281,7 +308,7 @@ function clearReaction() {
 
 function react(
   kind: Reaction,
-  text = reactionText[kind],
+  text: string,
   effect: Parameters<GameSound["play"]>[0] = kind,
 ) {
   lastReaction = kind;
@@ -313,10 +340,10 @@ function togglePause() {
 
 function rotateScreen() {
   if (portraitPhone.matches) stop();
+  else if (round.state === "ready" && !document.hidden) begin();
   else {
     render();
     if (!paused.hidden) resume.focus();
-    if (!ready.hidden) start.focus();
     if (!lost.hidden) restart.focus();
   }
 }
@@ -367,9 +394,12 @@ for (const button of controls) {
   });
 }
 
-start.addEventListener("click", begin);
 restart.addEventListener("click", () => {
-  if (restart.getAttribute("aria-disabled") !== "true") begin();
+  if (
+    round.state === "lost" &&
+    restart.getAttribute("aria-disabled") !== "true"
+  )
+    begin();
 });
 retryResult.addEventListener("click", () => void saveResult());
 pause.addEventListener("click", togglePause);
@@ -379,6 +409,7 @@ portraitPhone.addEventListener("change", rotateScreen);
 compactLandscape.addEventListener("change", render);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stop();
+  else if (round.state === "ready") rotateScreen();
 });
 hero.addEventListener("load", render);
 bananaSprite.addEventListener("load", render);

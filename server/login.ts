@@ -26,9 +26,10 @@ const attemptWindow = 60_000;
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
 const gamePath = "/ilsur-lovit-chleny/";
+const instructionsPath = `${gamePath}instructions`;
 
 function safeReturnTo(value: unknown) {
-  return value === gamePath ? gamePath : "/";
+  return value === gamePath || value === instructionsPath ? value : "/";
 }
 
 function loginPage(
@@ -136,6 +137,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
       path === "/" ||
       path === "/index.html" ||
       path === gamePath ||
+      path === instructionsPath ||
       api
     ) {
       reply.header("Cache-Control", "no-store");
@@ -186,6 +188,21 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
   app.get("/", catalog);
   app.get("/index.html", catalog);
   app.get(gamePath, game);
+  app.get(instructionsPath, async (request, reply) => {
+    if (!findSession.get(sessionHash(request), Date.now())) {
+      return reply.redirect(
+        `/login?returnTo=${encodeURIComponent(instructionsPath)}`,
+      );
+    }
+    const template = await readFile(
+      new URL(
+        "../client/games/ilsur-lovit-chleny/instructions.html",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    return reply.type("text/html; charset=utf-8").send(template);
+  });
   for (const entry of games) {
     app.get(`${entry.href}rating`, async (request, reply) => {
       reply.header("Cache-Control", "no-store");
