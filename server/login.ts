@@ -4,7 +4,16 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { renderCatalog } from "./catalog.js";
+import { games, renderCatalog, renderRating } from "./catalog.js";
+import { createLeaderboard } from "./leaderboard.js";
+
+type Player = { id: number; nickname: string };
+
+declare module "fastify" {
+  interface FastifyRequest {
+    player: Player | null;
+  }
+}
 
 export type LoginOptions = {
   password: string;
@@ -74,6 +83,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
       expires_at INTEGER NOT NULL
     );
   `);
+  const leaderboard = createLeaderboard(database);
   const savePlayer = database.prepare(`
     INSERT INTO players (nickname, nickname_key) VALUES (?, ?)
     ON CONFLICT(nickname_key) DO NOTHING
@@ -114,6 +124,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
     },
   );
 
+  app.decorateRequest("player", null);
   app.addHook("onRequest", async (request, reply) => {
     if (request.routeOptions.url === "/api/health") return;
     const path = request.url.replace(/\?.*$/, "");
@@ -136,8 +147,11 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
     ) {
       return reply.code(403).send();
     }
-    if (api && !findSession.get(sessionHash(request), Date.now())) {
-      return reply.code(401).send({ error: "Требуется вход" });
+    if (api) {
+      const player = findSession.get(sessionHash(request), Date.now()) as
+        Player | undefined;
+      if (!player) return reply.code(401).send({ error: "Требуется вход" });
+      request.player = player;
     }
   });
 
@@ -147,7 +161,9 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
     if (!player) return reply.redirect("/login");
     return reply
       .type("text/html; charset=utf-8")
-      .send(renderCatalog(player.nickname));
+      .send(
+        renderCatalog(player.nickname, (id) => leaderboard.ranking(id, 5).top),
+      );
   }
 
   async function game(request: FastifyRequest, reply: FastifyReply) {
@@ -170,6 +186,78 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
   app.get("/", catalog);
   app.get("/index.html", catalog);
   app.get(gamePath, game);
+  for (const entry of games) {
+    app.get(`${entry.href}rating`, async (request, reply) => {
+      reply.header("Cache-Control", "no-store");
+      const player = findSession.get(sessionHash(request), Date.now()) as
+        { id: number } | undefined;
+      if (!player) return reply.redirect("/login");
+      const ranking = leaderboard.ranking(entry.id, 20, player.id);
+      return reply
+        .type("text/html; charset=utf-8")
+        .send(
+          renderRating(
+            entry,
+            ranking.top,
+            ranking.personal,
+            leaderboard.totals(entry.id, player.id),
+          ),
+        );
+    });
+
+    app.post<{
+      Params: { key: string };
+      Body: { score?: unknown; caught?: unknown };
+    }>(
+      `/api/games/${entry.id}/rounds/:key`,
+      { bodyLimit: 1024 },
+      async (request, reply) => {
+        const session = sessionHash(request);
+        const player = request.player!;
+        const { key } = request.params;
+        if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(key)) {
+          return reply
+            .code(400)
+            .send({ error: "Неверный идентификатор партии" });
+        }
+        const body = request.body;
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+          return reply.code(400).send({ error: "Неверные данные партии" });
+        }
+        if (Object.keys(body).length === 0) {
+          return leaderboard.start(entry.id, key, player.id, session)
+            ? reply.code(204).send()
+            : reply.code(409).send({ error: "Партия недоступна" });
+        }
+        const { score, caught } = body;
+        if (
+          typeof score !== "number" ||
+          typeof caught !== "number" ||
+          !Number.isSafeInteger(score) ||
+          !Number.isSafeInteger(caught) ||
+          score % 10 !== 0 ||
+          caught < 0 ||
+          caught > 1_000_000 ||
+          score < caught * 10 ||
+          score > caught * 50
+        ) {
+          return reply.code(400).send({ error: "Неверный результат партии" });
+        }
+        return leaderboard.finish(
+          entry.id,
+          key,
+          player.id,
+          session,
+          score,
+          caught,
+        )
+          ? reply.code(204).send()
+          : reply
+              .code(409)
+              .send({ error: "Партия недоступна или результат уже записан" });
+      },
+    );
+  }
   app.get("/login", async (request, reply) => {
     const query = request.query as { returnTo?: string };
     const returnTo = safeReturnTo(query.returnTo);
@@ -243,9 +331,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
       )
       .redirect(returnTo, 303);
   });
-  app.get("/api/session", async (request) =>
-    findSession.get(sessionHash(request), Date.now()),
-  );
+  app.get("/api/session", async (request) => request.player);
   app.post("/logout", async (request, reply) => {
     deleteSession.run(sessionHash(request));
     return reply

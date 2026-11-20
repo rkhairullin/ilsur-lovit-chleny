@@ -189,14 +189,6 @@ a {
   background: linear-gradient(150deg, #21142f, #150c23 70%);
 }
 
-.game-card__eyebrow {
-  margin: 0 0 0.4rem;
-  color: #aee7ff;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-}
-
 .game-card h2 {
   margin: 0;
   font-size: clamp(1.3rem, 3vw, 1.75rem);
@@ -322,10 +314,6 @@ button:focus-visible {
     padding: 0.65rem 0.9rem;
   }
 
-  .game-card__eyebrow {
-    font-size: 0.58rem;
-  }
-
   .game-card h2 {
     font-size: 1.22rem;
   }
@@ -354,4 +342,48 @@ button:focus-visible {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.game-card__rating h3,
+.game-card__rating ol,
+.game-card__rating p {
+  margin: 0 0 0.4rem;
+}
+
+.game-card__rating ol,
+.rating-page ol {
+  padding-inline-start: 1.4em;
+}
+
+.game-card__rating a {
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.rating-page nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.rating-page nav a {
+  padding-inline: 1rem;
+}
+
+.rating-page li {
+  margin-block: 0.4rem;
+  overflow-wrap: anywhere;
+}
+
+.rating-page dl {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.rating-page dd {
+  margin: 0;
+  font-weight: 750;
 }

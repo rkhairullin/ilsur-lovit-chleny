@@ -8,6 +8,9 @@ class ElementStub extends EventTarget {
   textContent = "";
   inert = false;
   focus = vi.fn();
+  getAttribute(name: string) {
+    return this.attributes.get(name);
+  }
   setPointerCapture = vi.fn();
   setAttribute(name: string, value: string) {
     this.attributes.set(name, value);
@@ -23,6 +26,10 @@ async function mount(
   } = {},
 ) {
   vi.resetModules();
+  const fetchRound = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetchRound);
   vi.stubGlobal(
     "Math",
     Object.create(Math, { random: { value: options.random ?? (() => 0) } }),
@@ -46,6 +53,8 @@ async function mount(
       "#streak",
       "#multiplier",
       "#final-score",
+      "#result-status",
+      "#retry-result",
       "#hero-sprite",
       "#banana-sprite",
       "#decoy-sprite",
@@ -162,6 +171,7 @@ async function mount(
     el,
     advance,
     frames,
+    fetchRound,
   };
 }
 
@@ -307,6 +317,9 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(el("#restart").focus).toHaveBeenCalled();
   expect(frames).toHaveLength(0);
   fire(media, "change");
+  await vi.waitFor(() =>
+    expect(el("#result-status").textContent).toBe("Результат сохранён"),
+  );
   fire(el("#restart"), "click");
   expect(game.dataset.state).toBe("playing");
   expect(el("#misses").textContent).toBe("0 / 6");
@@ -354,6 +367,9 @@ test("a new round draws its first lane, even after a restart", async () => {
   expect(el("#caught").textContent).toBe("1");
   advance(20_000);
   value = 0.3;
+  await vi.waitFor(() =>
+    expect(el("#result-status").textContent).toBe("Результат сохранён"),
+  );
   fire(el("#restart"), "click");
   advance(500);
   fire(window, "keydown", { code: "KeyA" });
@@ -573,4 +589,36 @@ test("golden banana has its own sprite, catch animation and bonus message", asyn
       ([image, , , width]) => image === sprite && width === 68,
     ),
   ).toBe(true);
+});
+
+test("a failed result can be retried using the same round key", async () => {
+  const { el, play, advance, fetchRound } = await mount();
+  fetchRound
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    .mockRejectedValueOnce(new Error("response lost"));
+  play();
+  advance(30000);
+  fire(el("#restart"), "click");
+  expect(el(".game").dataset.state).toBe("lost");
+  await vi.waitFor(() => expect(el("#retry-result").hidden).toBe(false));
+  expect(el("#result-status").textContent).toContain("не подтверждён");
+  fire(el("#retry-result"), "click");
+  await vi.waitFor(() => expect(fetchRound).toHaveBeenCalledTimes(4));
+  await vi.waitFor(() => expect(el("#retry-result").hidden).toBe(false));
+  fire(el("#retry-result"), "click");
+  await vi.waitFor(() =>
+    expect(el("#result-status").textContent).toBe("Результат сохранён"),
+  );
+  expect(el("#retry-result").hidden).toBe(true);
+  expect(new Set(fetchRound.mock.calls.map(([url]) => url)).size).toBe(1);
+  expect(fetchRound.mock.calls.map(([, options]) => options?.body)).toEqual([
+    "{}",
+    "{}",
+    "{}",
+    '{"score":0,"caught":0}',
+    "{}",
+    '{"score":0,"caught":0}',
+  ]);
 });

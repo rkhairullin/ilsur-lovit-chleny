@@ -52,7 +52,7 @@ for (const viewport of [
         name: "Скриншот игрового экрана во время полёта банана",
       }),
     ).toHaveJSProperty("naturalWidth", 1200);
-    await expect(page.getByText("Рейтинг скоро появится")).toBeVisible();
+    await expect(page.getByText("Пока нет результатов")).toBeVisible();
     expect(
       await page.evaluate(() => [
         document.documentElement.scrollWidth,

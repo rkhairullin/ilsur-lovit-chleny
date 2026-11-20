@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { renderCatalog } from "../../server/catalog.js";
 
 test("renders the closed expandable game catalog with an escaped player name", () => {
-  const page = renderCatalog(`<Игрок> & \"Рок\" 'n'`);
+  const page = renderCatalog(`<Игрок> & \"Рок\" 'n'`, () => []);
 
   expect(page).toContain("<h1>Ильсур - пИтух</h1>");
   expect(page).toContain('<p class="catalog-kicker">ВСЕ ВОКРУГ ЗНАЮТ, ЧТО</p>');
@@ -18,5 +18,6 @@ test("renders the closed expandable game catalog with an escaped player name", (
   expect(page).toContain(
     "Диско-пушки палят членами, а у Ильсура опять руки заняты. Помоги ему поймать их ртом, держи темп и докажи, что у Ильсура глубокая глотка",
   );
-  expect(page).toContain("Рейтинг скоро появится");
+  expect(page).toContain("Пока нет результатов");
+  expect(page).not.toContain("АРКАДА · 1 ИГРОК");
 });

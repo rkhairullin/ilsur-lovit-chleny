@@ -32,6 +32,8 @@ const ready = document.querySelector<HTMLElement>("#ready")!;
 const lost = document.querySelector<HTMLElement>("#lost")!;
 const start = document.querySelector<HTMLButtonElement>("#start")!;
 const restart = document.querySelector<HTMLButtonElement>("#restart")!;
+const resultStatus = document.querySelector<HTMLElement>("#result-status")!;
+const retryResult = document.querySelector<HTMLButtonElement>("#retry-result")!;
 const caught = document.querySelector<HTMLElement>("#caught")!;
 const misses = document.querySelector<HTMLElement>("#misses")!;
 const score = document.querySelector<HTMLElement>("#score")!;
@@ -66,6 +68,47 @@ let swallow:
 let reactionUntil = 0;
 let previousTime = 0;
 let framePending = false;
+
+function roundKey() {
+  const hex = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function sendRound(key: string, body: object) {
+  try {
+    const response = await fetch(
+      `/api/games/ilsur-lovit-chleny/rounds/${key}`,
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(8000),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+let currentRound: { key: string; started: Promise<boolean> };
+let pendingResult: { score: number; caught: number };
+
+async function saveResult() {
+  restart.setAttribute("aria-disabled", "true");
+  retryResult.hidden = true;
+  resultStatus.textContent = "Сохраняем результат…";
+  const { key, started } = currentRound;
+  const registered = (await started) || (await sendRound(key, {}));
+  const saved = registered && (await sendRound(key, pendingResult));
+  resultStatus.textContent = saved
+    ? "Результат сохранён"
+    : "Результат не подтверждён. Повтори сохранение.";
+  retryResult.hidden = saved;
+  restart.setAttribute("aria-disabled", "false");
+}
 
 function render() {
   const lane = input.lane;
@@ -141,6 +184,8 @@ function update() {
   previousTime = now;
   if (lastReaction && now >= reactionUntil) clearReaction();
   if (gameHasEnded()) {
+    pendingResult = { score: round.score, caught: round.caught };
+    void saveResult();
     sound.stopMusic();
     react("defeat");
     input.pause();
@@ -169,6 +214,8 @@ function scheduleFrame() {
 function begin() {
   if (document.hidden || portraitPhone.matches || round.state === "playing")
     return;
+  const key = roundKey();
+  currentRound = { key, started: sendRound(key, {}) };
   round.start();
   swallow = undefined;
   clearReaction();
@@ -303,7 +350,10 @@ for (const button of controls) {
 }
 
 start.addEventListener("click", begin);
-restart.addEventListener("click", begin);
+restart.addEventListener("click", () => {
+  if (restart.getAttribute("aria-disabled") !== "true") begin();
+});
+retryResult.addEventListener("click", () => void saveResult());
 pause.addEventListener("click", togglePause);
 resume.addEventListener("click", togglePause);
 addEventListener("blur", stop);

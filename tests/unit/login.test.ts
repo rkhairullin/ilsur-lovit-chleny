@@ -127,7 +127,7 @@ test("reuses persisted nicknames, escapes markup, rotates and revokes sessions",
       "&lt;B&gt;Ё &amp; &quot;&#39; $&amp;&lt;/B&gt;",
     );
     expect(game.body).toContain('href="/ilsur-lovit-chleny/"');
-    expect(game.body).toContain("Рейтинг скоро появится");
+    expect(game.body).toContain("Пока нет результатов");
     const gamePage = await app.inject({ url: "/ilsur-lovit-chleny/", headers });
     expect(gamePage.statusCode).toBe(200);
     expect(gamePage.headers["cache-control"]).toBe("no-store");
@@ -251,4 +251,88 @@ test("requires a configured password", () => {
       NODE_ENV: "production",
     }),
   ).toEqual({ password: "x", databasePath: "custom", secureCookie: true });
+});
+
+test("saves a round once, preserves the best result, and persists personal totals", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "arcade-results-"));
+  const databasePath = join(directory, "game.sqlite");
+  const app = makeApp({ databasePath });
+  const ranking = "/ilsur-lovit-chleny/rating";
+  const path = (id: number) =>
+    `/api/games/ilsur-lovit-chleny/rounds/00000000-0000-0000-0000-${String(id).padStart(12, "0")}`;
+  const login = async (nickname: string) =>
+    String((await enter(app, nickname)).headers["set-cookie"]).split(";")[0]!;
+  try {
+    const alice = await login("<Alice>");
+    const otherSession = await login("<ALICE>");
+    const bob = await login("Bob");
+    const post = (url: string, cookie: string, payload?: object) =>
+      app.inject({ method: "POST", url, headers: { cookie }, payload });
+    expect((await app.inject(ranking)).headers.location).toBe("/login");
+    expect(
+      (await app.inject({ url: ranking, headers: { cookie: alice } })).body,
+    ).toContain("У тебя пока нет результата");
+    expect((await post(path(1), "", {})).statusCode).toBe(401);
+    expect((await post(path(1), alice)).statusCode).toBe(400);
+    expect((await post(path(1), alice, [])).statusCode).toBe(400);
+    expect((await post(path(1) + "invalid", alice, {})).statusCode).toBe(400);
+    expect(
+      (await post(path(1), alice, { score: 40, caught: 2 })).statusCode,
+    ).toBe(409);
+    expect((await post(path(1), alice, {})).statusCode).toBe(204);
+    expect((await post(path(1), bob, {})).statusCode).toBe(409);
+    expect(
+      (await post(path(1), otherSession, { score: 40, caught: 2 })).statusCode,
+    ).toBe(409);
+    for (const payload of [
+      { score: "40", caught: 2 },
+      { score: 40, caught: "2" },
+      { score: 0.5, caught: 0 },
+      { score: 40, caught: 0.5 },
+      { score: 11, caught: 1 },
+      { score: 0, caught: -1 },
+      { score: 0, caught: 1_000_001 },
+      { score: 10, caught: 2 },
+      { score: 60, caught: 1 },
+    ])
+      expect((await post(path(1), alice, payload)).statusCode).toBe(400);
+    const result = { score: 40, caught: 2 };
+    const retries = await Promise.all([
+      post(path(1), alice, result),
+      post(path(1), alice, result),
+    ]);
+    expect(retries.map((response) => response.statusCode)).toEqual([204, 204]);
+    expect(
+      (await post(path(1), alice, { score: 40, caught: 4 })).statusCode,
+    ).toBe(409);
+    for (const [key, cookie, score, caught] of [
+      [2, alice, 10, 1],
+      [3, bob, 40, 3],
+      [4, alice, 40, 3],
+    ] as const) {
+      expect((await post(path(key), cookie, {})).statusCode).toBe(204);
+      expect(
+        (await post(path(key), cookie, { score, caught })).statusCode,
+      ).toBe(204);
+    }
+    const catalog = await app.inject({ url: "/", headers: { cookie: alice } });
+    expect(catalog.body).toContain(
+      "<li>Bob · 40 очков · 3 членов напихано</li><li>&lt;Alice&gt; · 40 очков · 3 членов напихано</li>",
+    );
+    const restarted = makeApp({ databasePath });
+    const page = await restarted.inject({
+      url: ranking,
+      headers: { cookie: otherSession },
+    });
+    expect(page.headers["cache-control"]).toBe("no-store");
+    expect(page.body).toContain(
+      "<h2>Твоё место</h2><p>2 · 40 очков · 3 членов напихано</p>",
+    );
+    expect(page.body).toMatch(
+      /Сыграно партий<\/dt><dd>3<\/dd>\s*<dt>Очков<\/dt><dd>90<\/dd>\s*<dt>Членов напихано<\/dt><dd>6/,
+    );
+  } finally {
+    await Promise.all(apps.splice(0).map((running) => running.close()));
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
