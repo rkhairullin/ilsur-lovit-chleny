@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { bananaSequence } from "../../client/game/sequence.js";
+import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 async function openGame(page: Page) {
   await page.request.post("/login", {
@@ -164,9 +164,10 @@ for (const viewport of [
     await page.setViewportSize(viewport);
     const background =
       viewport.width > viewport.height
-        ? page.waitForResponse(
-            (response) =>
-              new URL(response.url()).pathname === "/disco-floor.webp",
+        ? page.waitForResponse((response) =>
+            /\/disco-floor-[\w-]+\.webp$/.test(
+              new URL(response.url()).pathname,
+            ),
           )
         : undefined;
     await openGame(page);
@@ -395,7 +396,7 @@ test("missing sprites fall back to readable symbols and the game remains playabl
     };
   });
   await page.route(
-    /\/(?:(banana|login-character)\.png|disco-cannon\.webp)$/,
+    /\/(?:banana-[\w-]+\.png|login-character\.png|disco-cannon-[\w-]+\.webp)$/,
     (route) => route.abort(),
   );
   await page.clock.install();

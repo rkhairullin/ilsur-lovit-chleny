@@ -24,10 +24,15 @@ test("serves health, page and stylesheet; rejects missing routes", async () => {
   expect(page.body).toContain("<button>Начать петушить</button>");
   expect(page.body).toContain("Имя свое скажи, если ты мущщщщина");
   expect(page.body).toContain("Пароль (знают все четкие пацаны)");
-  const css = await app.inject("/style.css");
+  const css = await app.inject("/games/ilsur-lovit-chleny/style.css");
   expect(css.statusCode).toBe(200);
   expect(css.headers["content-type"]).toContain("text/css");
-  for (const path of ["/missing", "/package.json", "/.env"]) {
+  for (const path of [
+    "/games/ilsur-lovit-chleny/index.html",
+    "/missing",
+    "/package.json",
+    "/.env",
+  ]) {
     expect((await app.inject(path)).statusCode).toBe(404);
   }
 });

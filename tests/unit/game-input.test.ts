@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { GameInput, laneForKey } from "../../client/game/input.js";
+import {
+  GameInput,
+  laneForKey,
+} from "../../client/games/ilsur-lovit-chleny/input.js";
 
 describe("game input", () => {
   it("maps the four physical keys and ignores unrelated keys", () => {

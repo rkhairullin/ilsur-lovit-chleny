@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { Round } from "../../client/game/round.js";
-import { bananaSequence } from "../../client/game/sequence.js";
+import { Round } from "../../client/games/ilsur-lovit-chleny/round.js";
+import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 test("switching to the correct lane catches the banana immediately during flight", () => {
   const round = new Round(() => 0);
