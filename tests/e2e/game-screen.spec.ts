@@ -587,8 +587,8 @@ for (const mode of ["allowed", "declined", "iphone", "installed"] as const) {
       Object.defineProperty(document, "fullscreenEnabled", {
         value: mode === "allowed" || mode === "declined",
       });
-      document.documentElement.requestFullscreen = () => {
-        document.documentElement.dataset.fullscreenRequested = "true";
+      Element.prototype.requestFullscreen = function (this: HTMLElement) {
+        this.dataset.fullscreenRequested = "true";
         return mode === "declined"
           ? Promise.reject(new Error("Fullscreen declined"))
           : Promise.resolve();
