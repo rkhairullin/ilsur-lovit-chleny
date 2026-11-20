@@ -68,7 +68,7 @@ export function drawScene(
     ctx.translate(position.x, position.y);
     if (lane === "upper-left" || lane === "lower-left") ctx.scale(-1, 1);
     if (lane === "lower-left" || lane === "lower-right") ctx.rotate(0.22);
-    const heroSize = reaction === "catch" ? 168 : 156;
+    const heroSize = reaction === "catch" ? 210 : 195;
     const size = heroSize * (compactLandscape ? 1.5 : 1);
     // The mouth is at (72%, 24.5%) in the source portrait.
     drawSprite(ctx, hero, "🐓", 0, 0, size, lane ? [0.72, 0.245] : undefined);

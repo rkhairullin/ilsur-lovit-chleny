@@ -71,6 +71,13 @@ button:focus-visible {
   background: #180c2c url("./assets/disco-floor.webp") center top / cover
     no-repeat;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .arena {
+    background-image:
+      url("./assets/disco-ball.webp"), url("./assets/disco-crowd.webp"),
+      url("./assets/disco-floor-clean.webp");
+  }
+}
 canvas {
   display: block;
   width: 100%;

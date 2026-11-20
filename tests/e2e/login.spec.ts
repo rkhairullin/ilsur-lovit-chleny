@@ -23,6 +23,7 @@ for (const viewport of [
       .getByLabel("Пароль (знают все четкие пацаны)")
       .fill("browser-test-password");
     await page.getByLabel("Пароль (знают все четкие пацаны)").press("Enter");
+    await expect(page).toHaveURL(/\/$/);
     const player = await (await page.request.get("/api/session")).json();
     expect(player.nickname).toBe(nickname);
     await page.reload();
@@ -119,6 +120,7 @@ test("@visual player and logout on the mobile pause screen", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 844, height: 390 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.request.post("/login", {
     form: { nickname: "Игрок теста", password: "browser-test-password" },
   });
