@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { bananaSequence } from "../../client/game/sequence.js";
 
 async function openGame(page: Page) {
   await page.request.post("/login", {
@@ -295,7 +296,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
 }) => {
   await page.addInitScript(() => {
     let draw = 0;
-    Math.random = () => (draw++ === 17 ? 0.99 : 0);
+    Math.random = () => (draw++ === 18 ? 0.99 : 0);
     const { clearRect, drawImage } = CanvasRenderingContext2D.prototype;
     CanvasRenderingContext2D.prototype.clearRect = function (
       x,
@@ -322,6 +323,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
       Reflect.apply(drawImage, this, [sprite, ...coordinates]);
     };
   });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now() + 1000));
@@ -330,12 +332,13 @@ test("@visual draws overlapping flights and catches either lane independently", 
   const canvas = page.locator("canvas");
   for (let index = 0; index < 16; index++) {
     await page.clock.fastForward(index === 0 ? 600 : 2800);
+    if (index === 11) continue;
     await expect(canvas).toHaveAttribute("data-bananas", "1");
     await page.keyboard.press("q");
   }
-  await expect(page.locator("#caught")).toHaveText("16");
-  await expect(page.locator("#score")).toHaveText("220");
-  await expect(page.locator("#streak")).toHaveText("16");
+  await expect(page.locator("#caught")).toHaveText("15");
+  await expect(page.locator("#score")).toHaveText("200");
+  await expect(page.locator("#streak")).toHaveText("15");
   await expect(page.locator("#multiplier")).toHaveText("×2");
   await page.clock.fastForward(4000);
   await expect(canvas).toHaveAttribute("data-bananas", "2");
@@ -344,7 +347,7 @@ test("@visual draws overlapping flights and catches either lane independently", 
   await expect(canvas).toHaveAttribute("data-bananas", "1");
   await page.keyboard.press("q");
   await expect(canvas).toHaveAttribute("data-bananas", "0");
-  await expect(page.locator("#caught")).toHaveText("18");
+  await expect(page.locator("#caught")).toHaveText("17");
   await expect(page.locator("#misses")).toHaveText("0 / 6");
 });
 
@@ -449,3 +452,104 @@ test("a large Retina desktop keeps a wide arena and a high-resolution canvas", a
     await page.close();
   }
 });
+
+for (const capture of [false, true]) {
+  test(`@decoy ${capture ? "catching costs a miss" : "skipping is safe"}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: capture ? 1280 : 844,
+      height: capture ? 720 : 390,
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => {
+      Math.random = () => 0.125;
+    });
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await openGame(page);
+    await expect(page.locator("#decoy-sprite")).not.toHaveJSProperty(
+      "naturalWidth",
+      0,
+    );
+    await page.getByRole("button", { name: "Начать игру" }).click();
+
+    let elapsed = 0;
+    const sequence = bananaSequence(() => 0.125);
+    for (const item of sequence) {
+      const time = item.launch + 500;
+      await page.clock.fastForward(time - elapsed);
+      elapsed = time;
+      if (!item.decoy) {
+        await page.keyboard.press("q");
+        continue;
+      }
+      await expect(page.locator("#misses")).toHaveText("0 / 6");
+      const score = await page.locator("#score").textContent();
+      if (capture) {
+        await page.keyboard.press("q");
+        await expect(page.locator("#misses")).toHaveText("1 / 6");
+        await expect(page.locator("#streak")).toHaveText("0");
+        await expect(page.getByRole("status")).toHaveAttribute(
+          "data-reaction",
+          "miss",
+        );
+      } else {
+        await expect.soft(page).toHaveScreenshot("round-decoy-landscape.png");
+        await page.clock.fastForward(item.flight);
+        await expect(page.locator("#misses")).toHaveText("0 / 6");
+      }
+      await expect(page.locator("#score")).toHaveText(score!);
+      break;
+    }
+  });
+}
+
+for (const capture of [false, true]) {
+  test(`@golden ${capture ? "catch awards bonus points" : "skipping is safe"}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(
+      capture ? { width: 1280, height: 720 } : { width: 844, height: 390 },
+    );
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => {
+      Math.random = () => 0;
+    });
+    await page.clock.install();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
+    await openGame(page);
+    await expect(page.locator("#golden-sprite")).not.toHaveJSProperty(
+      "naturalWidth",
+      0,
+    );
+    await page.getByRole("button", { name: "Начать игру" }).click();
+    let elapsed = 0;
+    for (const item of bananaSequence(() => 0)) {
+      const time = item.deadline - 100;
+      await page.clock.fastForward(time - elapsed);
+      elapsed = time;
+      if (!item.golden) {
+        if (!item.decoy) await page.keyboard.press("q");
+        continue;
+      }
+      const score = Number(await page.locator("#score").textContent());
+      const streak = Number(await page.locator("#streak").textContent());
+      if (capture) {
+        await page.keyboard.press("q");
+        await expect(page.getByRole("status")).toHaveText("Бонус +20");
+      } else {
+        await expect.soft(page).toHaveScreenshot("round-golden-landscape.png");
+        await page.clock.fastForward(600);
+      }
+      await expect(page.locator("#misses")).toHaveText("0 / 6");
+      await expect(page.locator("#score")).toHaveText(
+        String(score + (capture ? 50 : 0)),
+      );
+      await expect(page.locator("#streak")).toHaveText(
+        String(streak + Number(capture)),
+      );
+      break;
+    }
+  });
+}

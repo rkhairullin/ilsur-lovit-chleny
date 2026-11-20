@@ -1,5 +1,5 @@
 import { GameInput, laneForKey, type Lane } from "./input.js";
-import { Round, missLimit } from "./round.js";
+import { Round, goldenBonus, missLimit } from "./round.js";
 import { drawScene } from "./scene.js";
 import { GameSound, type Reaction } from "./sound.js";
 
@@ -36,6 +36,9 @@ const finalScore = document.querySelector<HTMLElement>("#final-score")!;
 const hero = document.querySelector<HTMLImageElement>("#hero-sprite")!;
 const bananaSprite =
   document.querySelector<HTMLImageElement>("#banana-sprite")!;
+const goldenSprite =
+  document.querySelector<HTMLImageElement>("#golden-sprite")!;
+const decoySprite = document.querySelector<HTMLImageElement>("#decoy-sprite")!;
 const cannonSprite =
   document.querySelector<HTMLImageElement>("#cannon-sprite")!;
 const reaction = document.querySelector<HTMLElement>("#reaction")!;
@@ -48,7 +51,8 @@ const reactionText = {
 };
 let lastReaction: Reaction | undefined;
 const swallowDuration = 160;
-let swallow: { lane: Lane; from: number; started: number } | undefined;
+let swallow:
+  { lane: Lane; from: number; started: number; golden: boolean } | undefined;
 let reactionUntil = 0;
 let previousTime = 0;
 let framePending = false;
@@ -89,10 +93,16 @@ function render() {
       round.state === "lost" ? [] : round.bananas,
       hero,
       bananaSprite,
+      decoySprite,
+      goldenSprite,
       cannonSprite,
       lastReaction,
       compactLandscape.matches,
-      swallowing && { from: swallowing.from, progress: swallowProgress },
+      swallowing && {
+        from: swallowing.from,
+        progress: swallowProgress,
+        golden: swallowing.golden,
+      },
     );
   }
 
@@ -166,9 +176,18 @@ function press(source: string, lane: Lane) {
   update();
   if (input.press(source, lane)) {
     const progress = round.catchBanana(lane);
-    if (progress !== undefined) {
-      swallow = { lane, from: progress, started: previousTime };
-      react("catch");
+    if (progress === "decoy") {
+      swallow = undefined;
+      react("miss");
+    } else if (progress) {
+      swallow = {
+        lane,
+        from: progress.progress,
+        started: previousTime,
+        golden: progress.golden,
+      };
+      if (progress.golden) react("catch", `Бонус +${goldenBonus}`);
+      else react("catch");
     } else if (swallow?.lane !== lane) {
       swallow = undefined;
     }
@@ -182,11 +201,11 @@ function clearReaction() {
   reaction.textContent = "";
 }
 
-function react(kind: Reaction) {
+function react(kind: Reaction, text = reactionText[kind]) {
   lastReaction = kind;
   reactionUntil = previousTime + 750;
   reaction.dataset.reaction = kind;
-  reaction.textContent = reactionText[kind];
+  reaction.textContent = text;
   sound.play(kind);
 }
 
@@ -277,6 +296,8 @@ document.addEventListener("visibilitychange", () => {
 });
 hero.addEventListener("load", render);
 bananaSprite.addEventListener("load", render);
+decoySprite.addEventListener("load", render);
+goldenSprite.addEventListener("load", render);
 cannonSprite.addEventListener("load", render);
 new ResizeObserver(render).observe(canvas);
 rotateScreen();

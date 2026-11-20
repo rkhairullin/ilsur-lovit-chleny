@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
+import { bananaSequence } from "../../client/game/sequence.js";
 
 class ElementStub extends EventTarget {
   dataset: Record<string, string> = {};
@@ -47,6 +48,8 @@ async function mount(
       "#final-score",
       "#hero-sprite",
       "#banana-sprite",
+      "#decoy-sprite",
+      "#golden-sprite",
       "#cannon-sprite",
       "#reaction",
       "#sound",
@@ -56,6 +59,8 @@ async function mount(
     for (const selector of [
       "#hero-sprite",
       "#banana-sprite",
+      "#decoy-sprite",
+      "#golden-sprite",
       "#cannon-sprite",
     ]) {
       Object.assign(elements.get(selector)!, {
@@ -289,11 +294,11 @@ test("the animation loop survives pause and restart with only one pending frame"
   expect(el("#misses").textContent).toBe("0 / 6");
   fire(el("#resume"), "click");
   advance(2270);
-  const dropY = 160 + (518 - 160) * 0.5 ** 2;
+  const dropY = 160 + (506 - 160) * 0.5 ** 2;
   expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, dropY);
   expect(el("#misses").textContent).toBe("0 / 6");
   advance(170);
-  expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, 518);
+  expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 420, 506);
   expect(el("#misses").textContent).toBe("1 / 6");
   advance(15000);
   expect(game.dataset.state).toBe("lost");
@@ -317,21 +322,22 @@ test("holding a key, auto-repeat and duplicate keydown cannot catch a second ban
 
   for (let index = 0; index < 16; index++) {
     if (index > 0) advance(2800);
+    if (index === 11) continue;
     fire(window, "keydown", { code: "KeyQ" });
     fire(window, "keyup", { code: "KeyQ" });
   }
   advance(4000);
   fire(window, "keydown", { code: "KeyQ" });
-  expect(el("#caught").textContent).toBe("17");
+  expect(el("#caught").textContent).toBe("16");
   advance(100);
   fire(window, "keydown", { code: "KeyQ", repeat: true });
-  expect(el("#caught").textContent).toBe("17");
+  expect(el("#caught").textContent).toBe("16");
   fire(window, "keydown", { code: "KeyQ", repeat: false });
-  expect(el("#caught").textContent).toBe("17");
+  expect(el("#caught").textContent).toBe("16");
   fire(window, "keyup", { code: "KeyQ" });
   fire(lane, "pointerdown", { button: 0, pointerId: 8 });
   fire(lane, "pointerup", { button: 0, pointerId: 8 });
-  expect(el("#caught").textContent).toBe("18");
+  expect(el("#caught").textContent).toBe("17");
 });
 
 test("a new round draws its first lane, even after a restart", async () => {
@@ -367,10 +373,10 @@ test("loaded sprites render and the hero turns and leans toward the selected lan
   advance(500);
   expect(drawing.drawImage).toHaveBeenCalledWith(
     el("#banana-sprite"),
-    142,
-    48,
-    60,
-    40,
+    138,
+    expect.any(Number),
+    68,
+    expect.any(Number),
   );
   fire(window, "keydown", { code: "KeyA" });
   expect(drawing.scale).toHaveBeenCalledWith(-1, 1);
@@ -381,7 +387,7 @@ test("loaded sprites render and the hero turns and leans toward the selected lan
   expect(el("#reaction").textContent).toBe("");
 });
 
-test("compact landscape scales the hero immediately without scaling the banana", async () => {
+test("compact landscape increases the banana and hero sizes immediately", async () => {
   const { drawing, el, landscape, play, advance } = await mount({
     sprites: true,
   });
@@ -398,10 +404,10 @@ test("compact landscape scales the hero immediately without scaling the banana",
   );
   expect(drawing.drawImage).toHaveBeenLastCalledWith(
     el("#banana-sprite"),
-    142,
-    48,
-    60,
-    40,
+    134,
+    expect.any(Number),
+    76,
+    expect.any(Number),
   );
   landscape.matches = false;
   fire(landscape, "change");
@@ -481,9 +487,9 @@ test("catch pulls the banana to the anchored mouth, even after key release", asy
   [-168 * 0.72, -112 * 0.245, 168, 112].forEach((value, index) => {
     expect(heroDraw[index + 1]).toBeCloseTo(value);
   });
-  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(144);
+  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(138);
   advance(80);
-  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(282);
+  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(279);
   drawing.drawImage.mockClear();
   motion.matches = true;
   advance(30);
@@ -508,4 +514,61 @@ test("a tall high-density viewport uses equal axis scaling and a sharper canvas"
     0,
     0,
   );
+});
+
+test("the decoy draws its own sprite or cross and plays the miss reaction on capture", async () => {
+  const { drawing, el, window, play, advance } = await mount({ sprites: true });
+  const sequence = bananaSequence(() => 0);
+  let elapsed = 0;
+  play();
+  for (const item of sequence) {
+    advance(item.launch - elapsed);
+    elapsed = item.launch;
+    if (item.decoy) break;
+    fire(window, "keydown", { code: "KeyQ" });
+    fire(window, "keyup", { code: "KeyQ" });
+  }
+  expect(drawing.drawImage.mock.lastCall?.[0]).toBe(el("#decoy-sprite"));
+  Object.assign(el("#decoy-sprite"), { naturalWidth: 0 });
+  fire(el("#decoy-sprite"), "load");
+  expect(drawing.fillText.mock.lastCall?.[0]).toBe("✖");
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#misses").textContent).toBe("1 / 6");
+  expect(el("#reaction").dataset.reaction).toBe("miss");
+});
+
+test("golden banana has its own sprite, catch animation and bonus message", async () => {
+  const { drawing, el, window, play, advance } = await mount({ sprites: true });
+  let now = 0;
+  play();
+  for (const item of bananaSequence(() => 0)) {
+    const time = item.deadline - 100;
+    advance(time - now);
+    now = time;
+    if (item.golden) break;
+    if (item.decoy) continue;
+    fire(window, "keydown", { code: "KeyQ" });
+    fire(window, "keyup", { code: "KeyQ" });
+  }
+  const sprite = el("#golden-sprite");
+  expect(drawing.drawImage.mock.calls.some(([image]) => image === sprite)).toBe(
+    true,
+  );
+  const { naturalWidth } = sprite as unknown as HTMLImageElement;
+  Object.assign(sprite, { naturalWidth: 0 });
+  fire(sprite, "load");
+  expect(drawing.fillText).toHaveBeenCalledWith(
+    "⭐",
+    expect.any(Number),
+    expect.any(Number),
+  );
+  Object.assign(sprite, { naturalWidth });
+  drawing.drawImage.mockClear();
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#reaction").textContent).toBe("Бонус +20");
+  expect(
+    drawing.drawImage.mock.calls.some(
+      ([image, , , width]) => image === sprite && width === 68,
+    ),
+  ).toBe(true);
 });
