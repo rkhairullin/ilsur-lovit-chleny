@@ -404,10 +404,10 @@ test("loaded sprites render and the hero turns and leans toward the selected lan
   fire(el("#banana-sprite"), "load");
   expect(drawing.drawImage).toHaveBeenCalledWith(
     el("#hero-sprite"),
-    -78,
-    -52,
-    156,
-    104,
+    -97.5,
+    -65,
+    195,
+    130,
   );
   play();
   advance(500);
@@ -437,10 +437,10 @@ test("compact landscape increases the banana and hero sizes immediately", async 
   fire(landscape, "change");
   expect(drawing.drawImage).toHaveBeenCalledWith(
     el("#hero-sprite"),
-    -117,
-    -78,
-    234,
-    156,
+    -146.25,
+    -97.5,
+    292.5,
+    195,
   );
   expect(drawing.drawImage).toHaveBeenLastCalledWith(
     el("#banana-sprite"),
@@ -453,10 +453,10 @@ test("compact landscape increases the banana and hero sizes immediately", async 
   fire(landscape, "change");
   expect(drawing.drawImage).toHaveBeenCalledWith(
     el("#hero-sprite"),
-    -78,
-    -52,
-    156,
-    104,
+    -97.5,
+    -65,
+    195,
+    130,
   );
 });
 
@@ -568,6 +568,52 @@ test.each([false, true])(
   },
 );
 
+test.each([
+  [false, 195],
+  [true, 292.5],
+])(
+  "the enlarged hero anchors its mouth on all four lanes (compact: %s)",
+  async (compact, size) => {
+    const { drawing, el } = await mount({ sprites: true });
+    const hero = el("#hero-sprite") as unknown as HTMLImageElement;
+    const banana = el("#banana-sprite") as unknown as HTMLImageElement;
+    const missing = { naturalWidth: 0 } as HTMLImageElement;
+    const catchPoints = [
+      [420, 160],
+      [420, 380],
+      [780, 160],
+      [780, 380],
+    ];
+
+    for (const [index, lane] of lanes.entries()) {
+      drawing.translate.mockClear();
+      drawing.drawImage.mockClear();
+      drawScene(
+        drawing as unknown as CanvasRenderingContext2D,
+        lane,
+        [],
+        hero,
+        banana,
+        missing,
+        missing,
+        missing,
+        undefined,
+        compact,
+        { from: 0.5, progress: 1, golden: false },
+      );
+
+      const [, x, y, width, height] = drawing.drawImage.mock.calls[0]!;
+      expect(width).toBeCloseTo(size);
+      expect(x + width * 0.72).toBeCloseTo(0);
+      expect(y + height * 0.245).toBeCloseTo(0);
+      expect(drawing.translate.mock.calls).toEqual([
+        catchPoints[index],
+        catchPoints[index],
+      ]);
+    }
+  },
+);
+
 test("catch pulls the banana to the anchored mouth, even after key release", async () => {
   const { drawing, el, motion, play, advance, window } = await mount({
     sprites: true,
@@ -591,7 +637,7 @@ test("catch pulls the banana to the anchored mouth, even after key release", asy
   ).toBe(true);
   fire(window, "keyup", { code: "KeyQ" });
   const heroDraw = draws("#hero-sprite").at(-1)!;
-  [-168 * 0.72, -112 * 0.245, 168, 112].forEach((value, index) => {
+  [-210 * 0.72, -140 * 0.245, 210, 140].forEach((value, index) => {
     expect(heroDraw[index + 1]).toBeCloseTo(value);
   });
   const flightAngle = Math.atan2(92, 248) - Math.PI / 2;
