@@ -291,7 +291,9 @@ function press(source: string, lane: Lane) {
       else
         react(
           "catch",
-          catchPhrases[Math.floor(Math.random() * catchPhrases.length)]!,
+          catchPhrases[
+            crypto.getRandomValues(new Uint32Array(1))[0]! % catchPhrases.length
+          ]!,
         );
     } else if (swallow?.lane !== lane) {
       swallow = undefined;

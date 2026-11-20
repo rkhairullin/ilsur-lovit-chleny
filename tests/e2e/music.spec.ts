@@ -157,7 +157,7 @@ for (const viewport of [
       expect(box.x).toBe(bounds[0]!.x + index * 50);
     }
     await pause.click();
-    await expect(pause).toBeVisible();
+    await expect(pause).toBeHidden();
     await expect(group.getByRole("button", { name: "Музыка" })).toBeVisible();
   });
 }

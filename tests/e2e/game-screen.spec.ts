@@ -2,6 +2,16 @@ import { expect, test, type Page } from "@playwright/test";
 import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 async function openGame(page: Page) {
+  await page.addInitScript(() => {
+    const getRandomValues = window.crypto.getRandomValues.bind(window.crypto);
+    window.crypto.getRandomValues = (buffer) => {
+      if (buffer instanceof Uint32Array) {
+        buffer.fill(0);
+        return buffer;
+      }
+      return getRandomValues(buffer);
+    };
+  });
   await page.route("**/api/games/*/rounds/*", (route) =>
     route.fulfill({ status: 204 }),
   );

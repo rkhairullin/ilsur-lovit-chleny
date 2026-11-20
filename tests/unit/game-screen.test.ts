@@ -32,6 +32,7 @@ async function mount(
     requestFullscreen?: () => Promise<void>;
     canvas?: boolean;
     random?: () => number;
+    phraseIndex?: () => number;
     sprites?: boolean;
   } = {},
 ) {
@@ -42,6 +43,14 @@ async function mount(
   if (options.firstRequestFails)
     fetchRound.mockRejectedValueOnce(new Error("offline"));
   vi.stubGlobal("fetch", fetchRound);
+  const getRandomValues = crypto.getRandomValues.bind(crypto);
+  vi.spyOn(crypto, "getRandomValues").mockImplementation((buffer) => {
+    if (buffer instanceof Uint32Array) {
+      buffer[0] = options.phraseIndex?.() ?? 0;
+      return buffer;
+    }
+    return getRandomValues(buffer);
+  });
   vi.stubGlobal(
     "Math",
     Object.create(Math, { random: { value: options.random ?? (() => 0) } }),
@@ -203,7 +212,10 @@ function fire(target: EventTarget, type: string, fields = {}) {
   return event;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 test("keyboard and pointer navigation share the same displayed position", async () => {
   const { elements, lane, window, drawing } = await mount();
@@ -797,14 +809,16 @@ test("automatic start registers only one round and preserves a later pause", asy
 });
 
 test("ordinary catches can choose different reaction phrases", async () => {
-  let random = 0;
-  const { el, window, advance } = await mount({ random: () => random });
+  let phraseIndex = 0;
+  const { el, window, advance } = await mount({
+    phraseIndex: () => phraseIndex,
+  });
   advance(500);
   fire(window, "keydown", { code: "KeyQ" });
   fire(window, "keyup", { code: "KeyQ" });
   expect(el("#reaction").textContent).toBe("Отсосал");
   advance(2800);
-  random = 0.999;
+  phraseIndex = 10;
   fire(window, "keydown", { code: "KeyQ" });
   expect(el("#reaction").textContent).toBe("Вот это подача!");
   expect(el("#caught").textContent).toBe("2");
