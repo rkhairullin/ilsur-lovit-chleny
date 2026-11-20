@@ -7,10 +7,9 @@ export default defineConfig({
     outDir: "../dist/client",
     emptyOutDir: true,
     rollupOptions: {
-      input: fileURLToPath(
-        new URL(
-          "./client/games/ilsur-lovit-chleny/index.html",
-          import.meta.url,
+      input: ["index.html", "instructions.html"].map((page) =>
+        fileURLToPath(
+          new URL(`./client/games/ilsur-lovit-chleny/${page}`, import.meta.url),
         ),
       ),
     },

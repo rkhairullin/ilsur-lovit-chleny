@@ -22,6 +22,8 @@ class ElementStub extends EventTarget {
 async function mount(
   options: {
     portrait?: boolean;
+    hidden?: boolean;
+    firstRequestFails?: boolean;
     userAgent?: string;
     fullscreen?: boolean;
     fullscreenActive?: boolean;
@@ -30,6 +32,7 @@ async function mount(
     requestFullscreen?: () => Promise<void>;
     canvas?: boolean;
     random?: () => number;
+    phraseIndex?: () => number;
     sprites?: boolean;
   } = {},
 ) {
@@ -37,7 +40,17 @@ async function mount(
   const fetchRound = vi
     .fn<typeof fetch>()
     .mockResolvedValue(new Response(null, { status: 204 }));
+  if (options.firstRequestFails)
+    fetchRound.mockRejectedValueOnce(new Error("offline"));
   vi.stubGlobal("fetch", fetchRound);
+  const getRandomValues = crypto.getRandomValues.bind(crypto);
+  vi.spyOn(crypto, "getRandomValues").mockImplementation((buffer) => {
+    if (buffer instanceof Uint32Array) {
+      buffer[0] = options.phraseIndex?.() ?? 0;
+      return buffer;
+    }
+    return getRandomValues(buffer);
+  });
   vi.stubGlobal(
     "Math",
     Object.create(Math, { random: { value: options.random ?? (() => 0) } }),
@@ -51,9 +64,7 @@ async function mount(
       "#resume",
       "#paused",
       "#rotate",
-      "#ready",
       "#lost",
-      "#start",
       "#fullscreen-hint",
       "#restart",
       "#caught",
@@ -135,7 +146,7 @@ async function mount(
     standalone: options.installed,
   });
   const document = Object.assign(new EventTarget(), {
-    hidden: false,
+    hidden: options.hidden ?? false,
     fullscreenEnabled: options.fullscreen ?? false,
     fullscreenElement: options.fullscreenActive ? {} : null,
     documentElement: { requestFullscreen },
@@ -171,7 +182,6 @@ async function mount(
     frames.push(callback),
   );
   const el = (selector: string) => elements.get(selector)!;
-  const play = () => fire(el("#start"), "click");
   const advance = (delta: number) => {
     now += delta;
     frames.shift()?.(now);
@@ -188,7 +198,6 @@ async function mount(
     drawing,
     canvas,
     resize: () => resize(),
-    play,
     el,
     advance,
     frames,
@@ -203,11 +212,13 @@ function fire(target: EventTarget, type: string, fields = {}) {
   return event;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 test("keyboard and pointer navigation share the same displayed position", async () => {
-  const { elements, lane, window, drawing, play } = await mount();
-  play();
+  const { elements, lane, window, drawing } = await mount();
   const game = elements.get(".game")!;
   expect(game.dataset.position).toBe("center");
   expect(drawing.fillText).toHaveBeenLastCalledWith("🐓", 600, 270);
@@ -247,8 +258,7 @@ test("keyboard and pointer navigation share the same displayed position", async 
 });
 
 test("manual pause and automatic pause clear input and restore focus", async () => {
-  const { elements, document, window, play } = await mount();
-  play();
+  const { elements, document, window } = await mount();
   const pause = elements.get("#pause")!;
   const resume = elements.get("#resume")!;
   const overlay = elements.get("#paused")!;
@@ -276,7 +286,7 @@ test("manual pause and automatic pause clear input and restore focus", async () 
 });
 
 test("portrait holds the screen paused until the player resumes in landscape", async () => {
-  const { elements, media, window, play, el } = await mount({
+  const { elements, media, window } = await mount({
     portrait: true,
     canvas: false,
   });
@@ -284,15 +294,13 @@ test("portrait holds the screen paused until the player resumes in landscape", a
   const overlay = elements.get("#paused")!;
   const resume = elements.get("#resume")!;
   expect(rotate.hidden).toBe(false);
-  play();
   fire(window, "keydown", { code: "Escape" });
   expect(overlay.hidden).toBe(true);
   media.matches = false;
   fire(media, "change");
   expect(rotate.hidden).toBe(true);
   expect(overlay.hidden).toBe(true);
-  expect(el("#start").focus).toHaveBeenCalledOnce();
-  play();
+  expect(elements.get(".game")!.dataset.state).toBe("playing");
   media.matches = true;
   fire(media, "change");
   media.matches = false;
@@ -307,15 +315,16 @@ test("portrait holds the screen paused until the player resumes in landscape", a
 });
 
 test("the animation loop survives pause and restart with only one pending frame", async () => {
-  const { el, play, advance, frames, drawing, document, media } = await mount();
+  const { el, advance, frames, drawing, document, media } = await mount({
+    hidden: true,
+  });
   const game = el(".game");
   expect(game.dataset.state).toBe("ready");
   document.hidden = true;
-  play();
   expect(frames).toHaveLength(0);
   document.hidden = false;
-  play();
-  play();
+  fire(document, "visibilitychange");
+  fire(document, "visibilitychange");
   expect(frames).toHaveLength(1);
   advance(500);
   expect(drawing.fillText).toHaveBeenLastCalledWith("🍌", 172, 68);
@@ -350,8 +359,7 @@ test("the animation loop survives pause and restart with only one pending frame"
 });
 
 test("holding a key, auto-repeat and duplicate keydown cannot catch a second banana", async () => {
-  const { el, play, advance, window, lane } = await mount();
-  play();
+  const { el, advance, window, lane } = await mount();
   fire(window, "keydown", { code: "KeyQ" });
   advance(500);
   expect(el("#caught").textContent).toBe("0");
@@ -379,8 +387,7 @@ test("holding a key, auto-repeat and duplicate keydown cannot catch a second ban
 
 test("a new round draws its first lane, even after a restart", async () => {
   let value = 0.99;
-  const { el, play, advance, window } = await mount({ random: () => value });
-  play();
+  const { el, advance, window } = await mount({ random: () => value });
   advance(500);
   fire(window, "keydown", { code: "KeyQ" });
   expect(el("#caught").textContent).toBe("0");
@@ -399,7 +406,7 @@ test("a new round draws its first lane, even after a restart", async () => {
 });
 
 test("loaded sprites render and the hero turns and leans toward the selected lane", async () => {
-  const { drawing, el, window, play, advance } = await mount({ sprites: true });
+  const { drawing, el, window, advance } = await mount({ sprites: true });
   fire(el("#hero-sprite"), "load");
   fire(el("#banana-sprite"), "load");
   expect(drawing.drawImage).toHaveBeenCalledWith(
@@ -409,7 +416,6 @@ test("loaded sprites render and the hero turns and leans toward the selected lan
     195,
     130,
   );
-  play();
   advance(500);
   expect(drawing.drawImage).toHaveBeenCalledWith(
     el("#banana-sprite"),
@@ -428,10 +434,9 @@ test("loaded sprites render and the hero turns and leans toward the selected lan
 });
 
 test("compact landscape increases the banana and hero sizes immediately", async () => {
-  const { drawing, el, landscape, play, advance } = await mount({
+  const { drawing, el, landscape, advance } = await mount({
     sprites: true,
   });
-  play();
   advance(500);
   landscape.matches = true;
   fire(landscape, "change");
@@ -615,12 +620,11 @@ test.each([
 );
 
 test("catch pulls the banana to the anchored mouth, even after key release", async () => {
-  const { drawing, el, motion, play, advance, window } = await mount({
+  const { drawing, el, motion, advance, window } = await mount({
     sprites: true,
   });
   const draws = (selector: string) =>
     drawing.drawImage.mock.calls.filter(([sprite]) => sprite === el(selector));
-  play();
   advance(500);
   fire(window, "keydown", { code: "KeyQ" });
   fire(window, "keyup", { code: "KeyQ" });
@@ -673,10 +677,9 @@ test("a tall high-density viewport uses equal axis scaling and a sharper canvas"
 });
 
 test("the decoy draws its own sprite or cross and plays the miss reaction on capture", async () => {
-  const { drawing, el, window, play, advance } = await mount({ sprites: true });
+  const { drawing, el, window, advance } = await mount({ sprites: true });
   const sequence = bananaSequence(() => 0);
   let elapsed = 0;
-  play();
   for (const item of sequence) {
     advance(item.launch - elapsed);
     elapsed = item.launch;
@@ -694,9 +697,8 @@ test("the decoy draws its own sprite or cross and plays the miss reaction on cap
 });
 
 test("golden banana has its own sprite, catch animation and bonus message", async () => {
-  const { drawing, el, window, play, advance } = await mount({ sprites: true });
+  const { drawing, el, window, advance } = await mount({ sprites: true });
   let now = 0;
-  play();
   for (const item of bananaSequence(() => 0)) {
     const time = item.deadline - 100;
     advance(time - now);
@@ -732,13 +734,11 @@ test("golden banana has its own sprite, catch animation and bonus message", asyn
 });
 
 test("a failed result can be retried using the same round key", async () => {
-  const { el, play, advance, fetchRound } = await mount();
+  const { el, advance, fetchRound } = await mount({ firstRequestFails: true });
   fetchRound
-    .mockRejectedValueOnce(new Error("offline"))
     .mockResolvedValueOnce(new Response(null, { status: 503 }))
     .mockResolvedValueOnce(new Response(null, { status: 204 }))
     .mockRejectedValueOnce(new Error("response lost"));
-  play();
   advance(30000);
   fire(el("#restart"), "click");
   expect(el(".game").dataset.state).toBe("lost");
@@ -776,7 +776,7 @@ test.each([
   const app = await mount(options);
   expect(app.el("#fullscreen-hint").hidden).toBe(!options.hint);
   expect(app.requestFullscreen).not.toHaveBeenCalled();
-  app.play();
+  fire(app.window, "click");
   expect(app.requestFullscreen).toHaveBeenCalledTimes(
     options.requested ? 1 : 0,
   );
@@ -791,8 +791,35 @@ test("a declined fullscreen request still starts the round", async () => {
     fullscreen: true,
     requestFullscreen: () => Promise.reject(new Error("Fullscreen declined")),
   });
-  app.play();
+  fire(app.window, "click");
   await Promise.resolve();
   expect(app.requestFullscreen).toHaveBeenCalledOnce();
   expect(app.el(".game").dataset.state).toBe("playing");
+});
+
+test("automatic start registers only one round and preserves a later pause", async () => {
+  const { el, fetchRound, window, document } = await mount();
+  expect(el(".game").dataset.state).toBe("playing");
+  fire(el("#restart"), "click");
+  fire(window, "blur");
+  fire(window, "click");
+  fire(document, "visibilitychange");
+  expect(el(".game").dataset.state).toBe("paused");
+  expect(fetchRound).toHaveBeenCalledTimes(1);
+});
+
+test("ordinary catches can choose different reaction phrases", async () => {
+  let phraseIndex = 0;
+  const { el, window, advance } = await mount({
+    phraseIndex: () => phraseIndex,
+  });
+  advance(500);
+  fire(window, "keydown", { code: "KeyQ" });
+  fire(window, "keyup", { code: "KeyQ" });
+  expect(el("#reaction").textContent).toBe("Отсосал");
+  advance(2800);
+  phraseIndex = 10;
+  fire(window, "keydown", { code: "KeyQ" });
+  expect(el("#reaction").textContent).toBe("Вот это подача!");
+  expect(el("#caught").textContent).toBe("2");
 });

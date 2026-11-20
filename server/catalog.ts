@@ -13,7 +13,7 @@ export const games: GameCard[] = [
   {
     title: "Ильсур ловит члены",
     href: "/ilsur-lovit-chleny/",
-    image: "/catalog/game-preview.png",
+    image: "/catalog/game-preview.webp",
     imageAlt: "Скриншот игрового экрана во время полёта банана",
     description:
       "Диско-пушки палят членами, а у Ильсура опять руки заняты. Помоги ему поймать их ртом, держи темп и докажи, что у Ильсура глубокая глотка",
@@ -53,7 +53,7 @@ export function renderRating(
 </head>
 <body>
 <main class="catalog rating-page">
-<nav><a class="catalog-button" href="/">Каталог игр</a> <a class="catalog-button" href="${game.href}">Играть</a></nav>
+<nav><a class="catalog-button" href="/">Каталог игр</a> <a class="catalog-button" href="${game.href}instructions">Играть</a></nav>
 <h1>Рейтинг · ${game.title}</h1>
 <section><h2>Топ-20</h2>${renderRecords(records, true)}</section>
 <section><h2>Твоё место</h2><p>${personal ? `${personal.place} · ${personal.score} очков · ${personal.caught} членов напихано` : "У тебя пока нет результата"}</p></section>
@@ -74,7 +74,7 @@ export function renderCatalog(
   const cards = games
     .map(
       (game) => `<article class="game-card">
-  <a class="game-card__preview" href="${game.href}" aria-label="Открыть игру ${game.title}">
+  <a class="game-card__preview" href="${game.href}instructions" aria-label="Открыть игру ${game.title}">
     <img src="${game.image}" alt="${game.imageAlt}" width="1200" height="675">
     <span class="game-card__play-indicator" aria-hidden="true">▶</span>
   </a>
@@ -82,7 +82,7 @@ export function renderCatalog(
     <h2>${game.title}</h2>
     <p class="game-card__description">${game.description}</p>
     <div class="game-card__rating"><h3>Топ-5</h3>${renderRecords(top(game.id))}<a href="${game.href}rating">Полный рейтинг</a></div>
-    <a class="catalog-button" href="${game.href}">Начать петушить</a>
+    <a class="catalog-button" href="${game.href}instructions">Начать петушить</a>
   </div>
 </article>`,
     )
@@ -106,7 +106,10 @@ export function renderCatalog(
         </div>
         <div class="catalog-account">
           <p id="player-nickname">Привет, <b>${escapeHtml(nickname)}</b></p>
-          <form method="post" action="/logout"><button class="logout-button" type="submit">Выйти</button></form>
+          <div class="catalog-account-actions">
+            <form method="get" action="/"><button class="refresh-button" type="submit">Обновить рейтинг</button></form>
+            <form method="post" action="/logout"><button class="logout-button" type="submit">Выйти</button></form>
+          </div>
         </div>
       </header>
       <section class="catalog-library" aria-labelledby="library-title">

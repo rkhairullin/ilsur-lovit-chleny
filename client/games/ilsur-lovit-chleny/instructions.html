@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <title>Как играть — Ильсур ловит члены</title>
+    <link rel="stylesheet" href="./instructions.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="back" href="/">← В каталог</a>
+        <h1>Ильсур — пИтух. Диско-пушки заряжены!</h1>
+        <p>
+          Радуга горит, из пушек летят члены, Ильсур уже открыл рот. Твоя задача
+          — вовремя нажать кнопку с той стороны, откуда летит снаряд.
+        </p>
+      </header>
+      <div class="rules">
+        <section aria-labelledby="controls-title">
+          <h2 id="controls-title">Куда нажимать</h2>
+          <p>
+            <strong>На телефоне</strong> поверни экран горизонтально и жми одну
+            из четырёх стрелок. Летит слева сверху — жми верхнюю стрелку слева.
+          </p>
+          <p><strong>На компьютере</strong> зажигай на клавиатуре:</p>
+          <table aria-label="Клавиши по дорожкам">
+            <thead>
+              <tr>
+                <th scope="col">Дорожка</th>
+                <th scope="col">Слева</th>
+                <th scope="col">Справа</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Верхняя</th>
+                <td><kbd>Q</kbd></td>
+                <td><kbd>O</kbd></td>
+              </tr>
+              <tr>
+                <th scope="row">Нижняя</th>
+                <td><kbd>A</kbd></td>
+                <td><kbd>L</kbd></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+        <section aria-labelledby="items-title">
+          <h2 id="items-title">Что летит из пушек</h2>
+          <dl class="items">
+            <div>
+              <dt>
+                <img
+                  src="./assets/banana.png"
+                  alt=""
+                  width="56"
+                  height="56"
+                />Член
+              </dt>
+              <dd>
+                <strong>Лови.</strong> На старте это <strong>+10 очков</strong>.
+                Упал на пол — засчитывается промах.
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <img
+                  src="./assets/banana-golden.png"
+                  alt=""
+                  width="56"
+                  height="56"
+                />Дилдо
+              </dt>
+              <dd>
+                <strong>Лови, если успеваешь.</strong> Получишь столько же
+                очков, сколько за член при текущем множителе,
+                <strong>и ещё +20 сверху</strong>. Пролетело мимо — промаха нет.
+              </dd>
+            </div>
+            <div>
+              <dt>
+                <img
+                  src="./assets/banana-decoy.png"
+                  alt=""
+                  width="56"
+                  height="56"
+                />Банан-приманка
+              </dt>
+              <dd>
+                <strong>Пропусти.</strong> Поймал — получил промах и потерял
+                серию. У Ильсура есть право сказать «нет».
+              </dd>
+            </div>
+          </dl>
+        </section>
+        <section class="score" aria-labelledby="score-title">
+          <h2 id="score-title">Как набрать очки</h2>
+          <ul>
+            <li>
+              <strong>10 удачных захватов подряд</strong> — дальше за каждый
+              член дают <strong>20 очков</strong>.
+            </li>
+            <li>
+              <strong>20 удачных захватов подряд</strong> — дальше за каждый
+              член дают <strong>30 очков</strong>.
+            </li>
+            <li>
+              <strong>Промах</strong> сбрасывает серию. За член снова дают
+              <strong>10 очков</strong>.
+            </li>
+            <li>
+              <strong>Шесть промахов — Gay over.</strong> Дискотека закрывается,
+              результат отправляется в рейтинг.
+            </li>
+          </ul>
+        </section>
+      </div>
+    </main>
+    <footer>
+      <a class="start" href="/ilsur-lovit-chleny/">Начать напихивать</a>
+    </footer>
+  </body>
+</html>

@@ -126,7 +126,7 @@ test("reuses persisted nicknames, escapes markup, rotates and revokes sessions",
     expect(game.body).toContain(
       "&lt;B&gt;Ё &amp; &quot;&#39; $&amp;&lt;/B&gt;",
     );
-    expect(game.body).toContain('href="/ilsur-lovit-chleny/"');
+    expect(game.body).toContain('href="/ilsur-lovit-chleny/instructions"');
     expect(game.body).toContain("Пока нет результатов");
     const gamePage = await app.inject({ url: "/ilsur-lovit-chleny/", headers });
     expect(gamePage.statusCode).toBe(200);
@@ -335,4 +335,37 @@ test("saves a round once, preserves the best result, and persists personal total
     await Promise.all(apps.splice(0).map((running) => running.close()));
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("requires login for instructions and returns to them after login", async () => {
+  const app = makeApp();
+  const url = "/ilsur-lovit-chleny/instructions";
+  const guest = await app.inject(url);
+  expect(guest.headers.location).toBe(
+    `/login?returnTo=${encodeURIComponent(url)}`,
+  );
+  expect(guest.headers["cache-control"]).toBe("no-store");
+  expect(
+    (await app.inject("/games/ilsur-lovit-chleny/instructions.html"))
+      .statusCode,
+  ).toBe(404);
+
+  const login = await app.inject({
+    method: "POST",
+    url: "/login",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    payload: new URLSearchParams({
+      nickname: "Игрок",
+      password: options.password,
+      returnTo: url,
+    }).toString(),
+  });
+  expect(login.statusCode).toBe(303);
+  expect(login.headers.location).toBe(url);
+  const cookie = String(login.headers["set-cookie"]).split(";")[0]!;
+  const instructions = await app.inject({ url, headers: { cookie } });
+  expect(instructions.statusCode).toBe(200);
+  expect(instructions.headers["cache-control"]).toBe("no-store");
+  expect(instructions.body).toContain('href="/ilsur-lovit-chleny/"');
+  expect(instructions.body).toContain("У Ильсура есть право сказать «нет».");
 });
