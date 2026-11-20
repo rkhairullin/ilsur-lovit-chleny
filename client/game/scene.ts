@@ -2,8 +2,6 @@ import { lanes, type Lane } from "./input.js";
 import type { Round } from "./round.js";
 import type { Reaction } from "./sound.js";
 
-const floorY = 518;
-
 const starts = [
   { x: 172, y: 68 },
   { x: 172, y: 472 },
@@ -24,10 +22,12 @@ export function drawScene(
   bananas: Round["bananas"],
   hero: HTMLImageElement,
   bananaSprite: HTMLImageElement,
+  decoySprite: HTMLImageElement,
+  goldenSprite: HTMLImageElement,
   cannonSprite: HTMLImageElement,
   reaction: Reaction | undefined,
   compactLandscape: boolean,
-  swallowing?: { from: number; progress: number },
+  swallowing?: { from: number; progress: number; golden: boolean },
 ) {
   ctx.clearRect(0, 0, 1200, 540);
   for (const [index, end] of ends.entries()) {
@@ -68,32 +68,36 @@ export function drawScene(
   } else {
     ctx.fillText("🐓", position.x, position.y);
   }
+  const bananaSize = compactLandscape ? 76 : 68;
   if (swallowing && lane) {
     const start = starts[lanes.indexOf(lane)]!;
     const progress =
       swallowing.from + (1 - swallowing.from) * swallowing.progress;
-    if (bananaSprite.naturalWidth) {
+    const sprite = swallowing.golden ? goldenSprite : bananaSprite;
+    if (sprite.naturalWidth) {
       drawSprite(
         ctx,
-        bananaSprite,
+        sprite,
         "🍌",
         start.x + (position.x - start.x) * progress,
         start.y + (position.y - start.y) * progress,
-        56 * (1 - swallowing.progress),
+        bananaSize * (1 - swallowing.progress),
       );
     }
   }
+  const floor = 540 - bananaSize / 2;
+  ctx.font = `${Math.round(bananaSize * 0.7)}px sans-serif`;
   for (const banana of bananas) {
     const index = lanes.indexOf(banana.lane);
     const end = ends[index]!;
     const { x, y } = starts[index]!;
     drawSprite(
       ctx,
-      bananaSprite,
-      "🍌",
+      banana.decoy ? decoySprite : banana.golden ? goldenSprite : bananaSprite,
+      banana.decoy ? "✖" : banana.golden ? "⭐" : "🍌",
       x + (end.x - x) * banana.progress,
-      y + (end.y - y) * banana.progress + (floorY - end.y) * banana.fall ** 2,
-      60,
+      y + (end.y - y) * banana.progress + (floor - end.y) * banana.fall ** 2,
+      bananaSize,
     );
   }
 }
@@ -141,6 +145,7 @@ function drawSprite(
   [anchorX, anchorY] = [0.5, 0.5],
 ) {
   if (!image.naturalWidth) {
+    ctx.fillStyle = "#fff4ff";
     ctx.fillText(fallback, x, y);
     return;
   }

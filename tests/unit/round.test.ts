@@ -12,6 +12,8 @@ test("switching to the correct lane catches the banana immediately during flight
   expect(round.caught).toBe(0);
   round.advance(1);
   expect(round.bananas[0]).toEqual({
+    decoy: false,
+    golden: false,
     lane: "upper-left",
     progress: 0,
     fall: 0,
@@ -34,6 +36,8 @@ test("a banana falls to the floor, counts once at impact and cannot be caught wh
   round.advance(170);
   round.catchBanana("upper-left");
   expect(round.bananas[0]).toEqual({
+    decoy: false,
+    golden: false,
     lane: "upper-left",
     progress: 1,
     fall: 0.5,
@@ -51,6 +55,8 @@ test("a banana falls to the floor, counts once at impact and cannot be caught wh
   expect(round.bananas).toEqual([]);
   round.advance(200);
   expect(round.bananas[0]).toEqual({
+    decoy: false,
+    golden: false,
     lane: "lower-left",
     progress: 0,
     fall: 0,
@@ -89,12 +95,12 @@ test("paused time does not advance launch or catch windows", () => {
 });
 
 test("overlapping flights can be caught independently and fall only once", () => {
-  const draws = [...Array<number>(17).fill(0), 0.99];
+  const draws = [...Array<number>(18).fill(0), 0.99];
   const round = new Round(() => draws.shift() ?? 0);
   round.start();
   for (let index = 0; index < 16; index++) {
     round.advance(index === 0 ? 500 : 2800);
-    round.catchBanana("upper-left");
+    if (index !== 11) round.catchBanana("upper-left");
   }
   round.advance(4000);
   expect(round.bananas.map(({ lane }) => lane)).toEqual([
@@ -102,7 +108,7 @@ test("overlapping flights can be caught independently and fall only once", () =>
     "lower-right",
   ]);
   round.catchBanana("lower-right");
-  expect(round.caught).toBe(17);
+  expect(round.caught).toBe(16);
   expect(round.bananas.map(({ lane }) => lane)).toEqual(["upper-left"]);
   round.advance(640);
   expect(round.missed).toBe(1);
@@ -111,7 +117,7 @@ test("overlapping flights can be caught independently and fall only once", () =>
   expect(round.bananas).toEqual([]);
 });
 
-test("every banana can be caught in deadline order even at maximum tempo", () => {
+test("every regular banana can be caught in deadline order while avoiding decoys", () => {
   const random = () => {
     let seed = 27;
     return () => {
@@ -123,15 +129,19 @@ test("every banana can be caught in deadline order even at maximum tempo", () =>
   const sequence = bananaSequence(random());
   round.start();
   let now = 0;
+  let caught = 0;
   for (let index = 0; index < 500; index++) {
-    const { lane, deadline } = sequence.next().value;
+    const { lane, deadline, decoy } = sequence.next().value;
     const catchAt = deadline - 1;
     round.advance(catchAt - now);
-    round.catchBanana(lane);
-    expect(round.caught).toBe(index + 1);
+    if (!decoy) {
+      round.catchBanana(lane);
+      caught++;
+    }
+    expect(round.caught).toBe(caught);
     now = catchAt;
   }
-  expect(round.caught).toBe(500);
+  expect(round.caught).toBeGreaterThan(400);
   expect(round.missed).toBe(0);
 });
 
@@ -178,16 +188,19 @@ test("the next catch after ten or twenty consecutive catches earns the new multi
   round.start();
   let now = 0;
   for (let caught = 1; caught <= 21; caught++) {
-    const { lane, launch } = sequence.next().value;
-    round.advance(launch - now);
-    round.catchBanana(lane);
-    now = launch;
+    let item = sequence.next().value;
+    while (item.decoy) item = sequence.next().value;
+    const catchAt = item.deadline - 1;
+    round.advance(catchAt - now);
+    round.catchBanana(item.lane);
+    now = catchAt;
     if (scores.has(caught)) expect(round.score).toBe(scores.get(caught));
   }
   expect(round.streak).toBe(21);
   expect(round.multiplier).toBe(3);
 
-  const missed = sequence.next().value;
+  let missed = sequence.next().value;
+  while (missed.decoy) missed = sequence.next().value;
   const impact = missed.deadline + 340;
   round.advance(impact - now);
   now = impact;
@@ -195,8 +208,9 @@ test("the next catch after ten or twenty consecutive catches earns the new multi
   expect(round.score).toBe(330);
   expect(round.streak).toBe(0);
   expect(round.multiplier).toBe(1);
-  const next = sequence.next().value;
-  round.advance(Math.max(0, next.launch - now));
+  let next = sequence.next().value;
+  while (next.decoy) next = sequence.next().value;
+  round.advance(next.deadline - 1 - now);
   round.catchBanana(next.lane);
   expect(round.score).toBe(340);
   expect(round.streak).toBe(1);
@@ -208,18 +222,22 @@ test("the next catch after ten or twenty consecutive catches earns the new multi
 });
 
 test("the sixth impact freezes scoring even during the last landing animation", () => {
-  const round = new Round(() => 0);
-  const sequence = bananaSequence(() => 0);
+  const round = new Round(() => 0.125);
+  const sequence = bananaSequence(() => 0.125);
   round.start();
   let now = 0;
   let item = sequence.next().value;
   while (item.launch < 135_000) {
-    round.advance(item.launch - now);
-    round.catchBanana(item.lane);
-    now = item.launch;
+    const catchAt = item.deadline - 1;
+    round.advance(catchAt - now);
+    if (!item.decoy) round.catchBanana(item.lane);
+    now = catchAt;
     item = sequence.next().value;
   }
-  for (let index = 0; index < 5; index++) item = sequence.next().value;
+  for (let index = 0; index < 6; index++) {
+    while (item.decoy || item.golden) item = sequence.next().value;
+    if (index < 5) item = sequence.next().value;
+  }
   const sixthImpact = item.deadline + 340;
   round.advance(sixthImpact - now - 1);
   expect(round.missed).toBe(5);
@@ -235,4 +253,127 @@ test("the sixth impact freezes scoring even during the last landing animation", 
   expect(round.state).toBe("lost");
   round.catchBanana(item.lane);
   expect(round.score).toBe(score);
+});
+
+function reachFirstDecoy(round: Round, random: () => number, misses = 0) {
+  const sequence = bananaSequence(random);
+  round.start();
+  let now = 0;
+  let item = sequence.next().value;
+  while (!item.decoy) {
+    const time = item.deadline - 1;
+    round.advance(time - now);
+    if (misses > 0) misses--;
+    else round.catchBanana(item.lane);
+    now = time;
+    item = sequence.next().value;
+  }
+  round.advance(item.launch - now);
+  return { item, sequence };
+}
+
+test("ignoring an isolated decoy preserves misses, points and streak", () => {
+  const random = () => 0.125;
+  const round = new Round(random);
+  const { item } = reachFirstDecoy(round, random);
+  const { score, caught, streak } = round;
+  expect(round.bananas).toEqual([
+    { lane: item.lane, decoy: true, golden: false, progress: 0, fall: 0 },
+  ]);
+  round.advance(item.flight);
+  expect(round.catchBanana(item.lane)).toBeUndefined();
+  round.advance(500);
+  expect(round).toMatchObject({ score, caught, streak, missed: 0 });
+});
+
+test("catching a decoy counts exactly one miss and resets the streak without awarding points", () => {
+  const random = () => 0.125;
+  const round = new Round(random);
+  const { item } = reachFirstDecoy(round, random);
+  const { score, caught } = round;
+  expect(round.catchBanana(item.lane)).toBe("decoy");
+  expect(round.catchBanana(item.lane)).toBeUndefined();
+  round.advance(item.flight + 340);
+  expect(round).toMatchObject({ score, caught, streak: 0, missed: 1 });
+});
+
+test("catching a decoy as the sixth miss ends the round", () => {
+  const random = () => 0.125;
+  const round = new Round(random);
+  const { item } = reachFirstDecoy(round, random, 5);
+  expect(round.missed).toBe(5);
+  expect(round.catchBanana(item.lane)).toBe("decoy");
+  round.advance(160);
+  expect(round).toMatchObject({ missed: 6, state: "lost" });
+});
+
+function reachOverlappingDecoy(round: Round, misses = 0) {
+  const { item, sequence } = reachFirstDecoy(round, () => 0, misses);
+  let now = item.launch;
+  let regular = sequence.next().value;
+  let next = sequence.next().value;
+  while (!next.decoy) {
+    round.advance(regular.launch - now);
+    round.catchBanana(regular.lane);
+    now = regular.launch;
+    regular = next;
+    next = sequence.next().value;
+  }
+  round.advance(next.launch - now);
+  return { regular, decoy: next };
+}
+
+test("a same-lane press resolves the earliest available item before a later decoy", () => {
+  const round = new Round(() => 0);
+  const { regular, decoy } = reachOverlappingDecoy(round);
+  expect(round.catchBanana(regular.lane)).toMatchObject({ golden: false });
+  expect(round.catchBanana(decoy.lane)).toBe("decoy");
+  expect(round.missed).toBe(1);
+});
+
+test("a regular banana landing after a fatal decoy cannot add a seventh miss", () => {
+  const round = new Round(() => 0);
+  const { regular, decoy } = reachOverlappingDecoy(round, 5);
+  round.advance(regular.deadline + 300 - decoy.launch);
+  expect(round.catchBanana(decoy.lane)).toBe("decoy");
+  round.advance(160);
+  expect(round).toMatchObject({ missed: 6, state: "lost" });
+});
+
+function reachGolden(round: Round) {
+  let now = 0;
+  round.start();
+  for (const item of bananaSequence(() => 0)) {
+    const catchAt = item.deadline - 1;
+    round.advance(catchAt - now);
+    if (item.golden) return item;
+    if (!item.decoy) round.catchBanana(item.lane);
+    now = catchAt;
+  }
+  throw new Error("No golden banana");
+}
+
+test("golden catch adds twenty points to the multiplied catch and counts once", () => {
+  const round = new Round(() => 0);
+  const golden = reachGolden(round);
+  const { score, multiplier, caught, streak } = round;
+  expect(round.catchBanana(golden.lane)).toMatchObject({ golden: true });
+  expect(round).toMatchObject({
+    score: score + 10 * multiplier + 20,
+    caught: caught + 1,
+    streak: streak + 1,
+    missed: 0,
+  });
+  round.advance(500);
+  expect(round.score).toBe(score + 10 * multiplier + 20);
+  expect(round.missed).toBe(0);
+});
+
+test("letting a golden banana land preserves the score, streak and misses", () => {
+  const round = new Round(() => 0);
+  reachGolden(round);
+  const { score, streak, caught } = round;
+  round.advance(501);
+  expect(round).toMatchObject({ score, streak, caught, missed: 0 });
+  expect(round.bananas.some(({ golden }) => golden)).toBe(false);
 });

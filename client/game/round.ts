@@ -1,9 +1,12 @@
 import type { Lane } from "./input.js";
-import { bananaSequence, type Banana } from "./sequence.js";
-
-const fallTime = 340;
-const floorTime = 160;
+import {
+  bananaSequence,
+  fallTime,
+  floorTime,
+  type Banana,
+} from "./sequence.js";
 export const missLimit = 6;
+export const goldenBonus = 20;
 
 export class Round {
   state: "ready" | "playing" | "paused" | "lost" = "ready";
@@ -29,11 +32,15 @@ export class Round {
   }
 
   get bananas() {
-    return this.active.map(({ lane, launch, deadline, flight }) => ({
-      lane,
-      progress: Math.min((this.elapsed - launch) / flight, 1),
-      fall: Math.max(0, Math.min((this.elapsed - deadline) / fallTime, 1)),
-    }));
+    return this.active.map(
+      ({ lane, launch, deadline, flight, decoy, golden }) => ({
+        decoy,
+        golden,
+        lane,
+        progress: Math.min((this.elapsed - launch) / flight, 1),
+        fall: Math.max(0, Math.min((this.elapsed - deadline) / fallTime, 1)),
+      }),
+    );
   }
 
   start() {
@@ -62,10 +69,23 @@ export class Round {
     if (index < 0) return;
     const banana = this.active[index]!;
     this.active.splice(index, 1);
-    this.score += 10 * this.multiplier;
+    if (banana.decoy) {
+      this.recordMiss(this.elapsed);
+      return "decoy";
+    }
+    this.score += 10 * this.multiplier + (banana.golden ? goldenBonus : 0);
     this.streak++;
     this.caught++;
-    return (this.elapsed - banana.launch) / banana.flight;
+    return {
+      progress: (this.elapsed - banana.launch) / banana.flight,
+      golden: banana.golden,
+    };
+  }
+
+  private recordMiss(at: number) {
+    this.missed++;
+    this.streak = 0;
+    if (this.missed === missLimit) this.defeatAt = at + floorTime;
   }
 
   advance(delta: number) {
@@ -80,13 +100,15 @@ export class Round {
 
       const { deadline } = banana;
       const landing = deadline + fallTime;
-      if (this.elapsed < landing && landing <= end) {
-        this.missed++;
-        this.streak = 0;
-        if (this.missed === missLimit) {
-          this.defeatAt = landing + floorTime;
-          end = Math.min(end, this.defeatAt);
-        }
+      if (
+        !banana.golden &&
+        !banana.decoy &&
+        this.missed < missLimit &&
+        this.elapsed < landing &&
+        landing <= end
+      ) {
+        this.recordMiss(landing);
+        end = Math.min(end, this.defeatAt);
       }
       if (end < landing + floorTime) remaining.push(banana);
     }
