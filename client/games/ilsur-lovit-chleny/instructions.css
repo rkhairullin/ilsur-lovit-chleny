@@ -144,3 +144,20 @@ a:focus-visible {
     grid-column: 1 / -1;
   }
 }
+
+@media (max-width: 900px), (any-pointer: coarse) {
+  body {
+    height: 100svh;
+    height: 100dvh;
+  }
+
+  main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  footer {
+    position: static;
+    flex-shrink: 0;
+  }
+}
