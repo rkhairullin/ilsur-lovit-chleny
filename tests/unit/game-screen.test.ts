@@ -20,6 +20,12 @@ class ElementStub extends EventTarget {
 async function mount(
   options: {
     portrait?: boolean;
+    userAgent?: string;
+    fullscreen?: boolean;
+    fullscreenActive?: boolean;
+    installed?: boolean;
+    displayMode?: boolean;
+    requestFullscreen?: () => Promise<void>;
     canvas?: boolean;
     random?: () => number;
     sprites?: boolean;
@@ -46,6 +52,7 @@ async function mount(
       "#ready",
       "#lost",
       "#start",
+      "#fullscreen-hint",
       "#restart",
       "#caught",
       "#misses",
@@ -118,8 +125,18 @@ async function mount(
       observe() {}
     },
   );
+  const requestFullscreen = vi.fn(
+    options.requestFullscreen ?? (() => Promise.resolve()),
+  );
+  vi.stubGlobal("navigator", {
+    userAgent: options.userAgent ?? "Desktop",
+    standalone: options.installed,
+  });
   const document = Object.assign(new EventTarget(), {
     hidden: false,
+    fullscreenEnabled: options.fullscreen ?? false,
+    fullscreenElement: options.fullscreenActive ? {} : null,
+    documentElement: { requestFullscreen },
     querySelector: (selector: string) =>
       selector === "canvas" ? canvas : elements.get(selector),
     querySelectorAll: () => [lane],
@@ -140,7 +157,9 @@ async function mount(
       ? landscape
       : query.includes("reduced-motion")
         ? motion
-        : media,
+        : query.includes("display-mode")
+          ? { matches: options.displayMode ?? false }
+          : media,
   );
   vi.stubGlobal("addEventListener", window.addEventListener.bind(window));
   const frames: FrameRequestCallback[] = [];
@@ -172,6 +191,7 @@ async function mount(
     advance,
     frames,
     fetchRound,
+    requestFullscreen,
   };
 }
 
@@ -621,4 +641,38 @@ test("a failed result can be retried using the same round key", async () => {
     "{}",
     '{"score":0,"caught":0}',
   ]);
+});
+
+test.each([
+  { userAgent: "Android", fullscreen: true, requested: true },
+  { userAgent: "Android", fullscreen: true, fullscreenActive: true },
+  { userAgent: "Android", fullscreen: true, portrait: true },
+  { userAgent: "Desktop", fullscreen: true },
+  { userAgent: "iPhone", hint: true },
+  { userAgent: "iPhone", fullscreen: true, requested: true },
+  { userAgent: "iPhone", installed: true },
+  { userAgent: "iPhone", displayMode: true },
+])("mobile fullscreen and installation hint: %j", async (options) => {
+  const app = await mount(options);
+  expect(app.el("#fullscreen-hint").hidden).toBe(!options.hint);
+  expect(app.requestFullscreen).not.toHaveBeenCalled();
+  app.play();
+  expect(app.requestFullscreen).toHaveBeenCalledTimes(
+    options.requested ? 1 : 0,
+  );
+  expect(app.el(".game").dataset.state).toBe(
+    options.portrait ? "ready" : "playing",
+  );
+});
+
+test("a declined fullscreen request still starts the round", async () => {
+  const app = await mount({
+    userAgent: "Android",
+    fullscreen: true,
+    requestFullscreen: () => Promise.reject(new Error("Fullscreen declined")),
+  });
+  app.play();
+  await Promise.resolve();
+  expect(app.requestFullscreen).toHaveBeenCalledOnce();
+  expect(app.el(".game").dataset.state).toBe("playing");
 });

@@ -571,3 +571,44 @@ for (const capture of [false, true]) {
     }
   });
 }
+
+for (const mode of ["allowed", "declined", "iphone", "installed"] as const) {
+  test(`mobile fullscreen at round start: ${mode}`, async ({ browser }) => {
+    const iphone = mode === "iphone" || mode === "installed";
+    const page = await browser.newPage({
+      hasTouch: true,
+      viewport: { width: 844, height: 390 },
+      userAgent: iphone ? "iPhone" : "Android",
+    });
+    await page.addInitScript((mode) => {
+      Object.defineProperty(navigator, "standalone", {
+        value: mode === "installed",
+      });
+      Object.defineProperty(document, "fullscreenEnabled", {
+        value: mode === "allowed" || mode === "declined",
+      });
+      document.documentElement.requestFullscreen = () => {
+        document.documentElement.dataset.fullscreenRequested = "true";
+        return mode === "declined"
+          ? Promise.reject(new Error("Fullscreen declined"))
+          : Promise.resolve();
+      };
+    }, mode);
+    await openGame(page);
+    const hint = page.locator("#fullscreen-hint");
+    if (mode === "iphone") await expect(hint).toBeVisible();
+    else await expect(hint).toBeHidden();
+    const root = page.locator("html");
+    await expect(root).not.toHaveAttribute("data-fullscreen-requested");
+    await page.getByRole("button", { name: "Начать игру" }).click();
+    await expect(page.getByRole("main")).toHaveAttribute(
+      "data-state",
+      "playing",
+    );
+    if (iphone)
+      await expect(root).not.toHaveAttribute("data-fullscreen-requested");
+    else
+      await expect(root).toHaveAttribute("data-fullscreen-requested", "true");
+    await page.close();
+  });
+}
