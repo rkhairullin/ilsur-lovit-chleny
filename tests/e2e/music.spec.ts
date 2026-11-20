@@ -1,6 +1,12 @@
 import { readdirSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/games/*/rounds/*", (route) =>
+    route.fulfill({ status: 204 }),
+  );
+});
+
 const tracks = readdirSync(
   new URL("../../client/shared/music/tracks/", import.meta.url),
 )

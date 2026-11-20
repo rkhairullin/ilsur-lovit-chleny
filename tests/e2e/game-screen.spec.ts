@@ -1,13 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
-test.beforeEach(async ({ page }) => {
+async function openGame(page: Page) {
   await page.route("**/api/games/*/rounds/*", (route) =>
     route.fulfill({ status: 204 }),
   );
-});
-
-async function openGame(page: Page) {
   await page.request.post("/login", {
     form: { nickname: "Игрок теста", password: "browser-test-password" },
   });
