@@ -130,11 +130,18 @@ async function saveResult() {
   restart.setAttribute("aria-disabled", "false");
 }
 
+function updateText(element: HTMLElement, value: string) {
+  if (element.textContent !== value) element.textContent = value;
+}
+
 function render() {
   const lane = input.lane;
-  game.dataset.position = lane ?? "center";
-  for (const button of controls) {
-    button.setAttribute("aria-pressed", String(button.dataset.lane === lane));
+  const position = lane ?? "center";
+  if (game.dataset.position !== position) {
+    game.dataset.position = position;
+    for (const button of controls) {
+      button.setAttribute("aria-pressed", String(button.dataset.lane === lane));
+    }
   }
   const swallowProgress = swallow
     ? (previousTime - swallow.started) / swallowDuration
@@ -180,11 +187,12 @@ function render() {
   }
 
   game.dataset.state = round.state;
-  caught.textContent = String(round.caught);
-  score.textContent = finalScore.textContent = String(round.score);
-  streak.textContent = String(round.streak);
-  multiplier.textContent = `×${round.multiplier}`;
-  misses.textContent = `${round.missed} / ${missLimit}`;
+  updateText(caught, String(round.caught));
+  updateText(score, String(round.score));
+  updateText(finalScore, String(round.score));
+  updateText(streak, String(round.streak));
+  updateText(multiplier, `×${round.multiplier}`);
+  updateText(misses, `${round.missed} / ${missLimit}`);
 
   const needsRotation = portraitPhone.matches;
   rotate.hidden = !needsRotation;

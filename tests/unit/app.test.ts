@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { afterEach, expect, test } from "vitest";
 import { createApp } from "../../server/app.js";
 
@@ -24,6 +25,12 @@ test("serves health, page and stylesheet; rejects missing routes", async () => {
   expect(page.body).toContain("<button>Начать петушить</button>");
   expect(page.body).toContain("Имя свое скажи, если ты мущщщщина");
   expect(page.body).toContain("Пароль (знают все четкие пацаны)");
+  const characterPath = "/login/login-character.webp";
+  expect(page.body).toContain(`src="${characterPath}"`);
+  const character = await stat(
+    new URL(`../../client/public${characterPath}`, import.meta.url),
+  );
+  expect(character.size).toBeLessThan(1_100_000);
   const css = await app.inject("/games/ilsur-lovit-chleny/style.css");
   expect(css.statusCode).toBe(200);
   expect(css.headers["content-type"]).toContain("text/css");
