@@ -119,6 +119,7 @@ test("@visual player and logout on the mobile pause screen", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 844, height: 390 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.request.post("/login", {
     form: { nickname: "Игрок теста", password: "browser-test-password" },
   });

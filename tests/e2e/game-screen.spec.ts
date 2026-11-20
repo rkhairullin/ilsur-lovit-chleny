@@ -165,6 +165,7 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const background =
       viewport.width > viewport.height
         ? page.waitForResponse((response) =>
@@ -201,6 +202,49 @@ for (const viewport of [
     );
   });
 }
+
+test("disco layers share the arena crop and respect reduced motion", async ({
+  page,
+}) => {
+  const loadedAssets = new Set<string>();
+  page.on("response", (response) => {
+    const asset = new URL(response.url()).pathname.match(
+      /disco-(ball|crowd|floor-clean)-[\w-]+\.webp$/,
+    );
+    if (asset?.[1] && response.ok()) loadedAssets.add(asset[1]);
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await openGame(page);
+
+  const arena = page.locator(".arena");
+  await expect
+    .poll(() => [...loadedAssets].sort())
+    .toEqual(["ball", "crowd", "floor-clean"]);
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 844, height: 390 },
+    { width: 667, height: 375 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(arena).toBeInViewport();
+    await expect(arena).toHaveCSS("background-size", "cover, cover, cover");
+    await expect(arena).toHaveCSS(
+      "background-position",
+      "50% 0%, 50% 0%, 50% 0%",
+    );
+    await expect(arena).toHaveCSS(
+      "background-image",
+      /disco-ball-.*disco-crowd-.*disco-floor-clean-/,
+    );
+  }
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(arena).toHaveCSS(
+    "background-image",
+    /^url\("[^"]*\/disco-floor-[\w-]+\.webp"\)$/,
+  );
+});
 
 test("low FPS, visibility pause, catching, defeat and restart", async ({
   page,
@@ -275,6 +319,7 @@ test("low FPS, visibility pause, catching, defeat and restart", async ({
 });
 
 test("@visual start, banana in flight and defeat", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
     Math.random = () => 0;
   });
