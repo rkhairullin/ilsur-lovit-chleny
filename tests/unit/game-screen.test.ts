@@ -1,4 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
+import { lanes } from "../../client/games/ilsur-lovit-chleny/input.js";
+import { drawScene } from "../../client/games/ilsur-lovit-chleny/scene.js";
 import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 class ElementStub extends EventTarget {
@@ -411,7 +413,7 @@ test("loaded sprites render and the hero turns and leans toward the selected lan
   advance(500);
   expect(drawing.drawImage).toHaveBeenCalledWith(
     el("#banana-sprite"),
-    138,
+    -34,
     expect.any(Number),
     68,
     expect.any(Number),
@@ -442,7 +444,7 @@ test("compact landscape increases the banana and hero sizes immediately", async 
   );
   expect(drawing.drawImage).toHaveBeenLastCalledWith(
     el("#banana-sprite"),
-    134,
+    -38,
     expect.any(Number),
     76,
     expect.any(Number),
@@ -499,6 +501,73 @@ test("the same cannon sprite is mirrored and aimed from all four launch points",
   );
 });
 
+test.each([false, true])(
+  "banana aims along each lane and falls upright (golden: %s)",
+  async (golden) => {
+    const { drawing, el } = await mount({ sprites: true });
+    const ordinarySprite = el("#banana-sprite") as unknown as HTMLImageElement;
+    const goldenSprite = el("#golden-sprite") as unknown as HTMLImageElement;
+    const sprite = golden ? goldenSprite : ordinarySprite;
+    const missing = { naturalWidth: 0 } as HTMLImageElement;
+    drawing.rotate.mockClear();
+    drawing.translate.mockClear();
+
+    drawScene(
+      drawing as unknown as CanvasRenderingContext2D,
+      undefined,
+      [
+        ...lanes.map((lane) => ({
+          lane,
+          decoy: false,
+          golden,
+          progress: 0,
+          fall: 0,
+        })),
+        {
+          lane: "upper-left",
+          decoy: false,
+          golden,
+          progress: 1,
+          fall: 0.5,
+        },
+      ],
+      missing,
+      ordinarySprite,
+      missing,
+      goldenSprite,
+      missing,
+      undefined,
+      false,
+    );
+
+    expect(drawing.translate.mock.calls).toEqual([
+      [172, 68],
+      [172, 472],
+      [1028, 68],
+      [1028, 472],
+    ]);
+    const directions = [
+      [248, 92],
+      [248, -92],
+      [-248, 92],
+      [-248, -92],
+    ];
+    expect(drawing.drawImage).toHaveBeenLastCalledWith(
+      sprite,
+      golden ? 369 : 386,
+      expect.any(Number),
+      expect.closeTo(golden ? 102 : 68),
+      expect.any(Number),
+    );
+    expect(drawing.rotate.mock.calls).toHaveLength(4);
+    drawing.rotate.mock.calls.forEach(([angle], index) => {
+      const [dx, dy] = directions[index]!;
+      expect(-Math.sin(angle)).toBeCloseTo(dx! / Math.hypot(dx!, dy!));
+      expect(Math.cos(angle)).toBeCloseTo(dy! / Math.hypot(dx!, dy!));
+    });
+  },
+);
+
 test("catch pulls the banana to the anchored mouth, even after key release", async () => {
   const { drawing, el, motion, play, advance, window } = await mount({
     sprites: true,
@@ -525,9 +594,12 @@ test("catch pulls the banana to the anchored mouth, even after key release", asy
   [-168 * 0.72, -112 * 0.245, 168, 112].forEach((value, index) => {
     expect(heroDraw[index + 1]).toBeCloseTo(value);
   });
-  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(138);
+  const flightAngle = Math.atan2(92, 248) - Math.PI / 2;
+  expect(drawing.rotate).toHaveBeenLastCalledWith(flightAngle);
+  expect(drawing.translate.mock.lastCall?.[0]).toBeCloseTo(172);
   advance(80);
-  expect(draws("#banana-sprite").at(-1)?.[1]).toBeCloseTo(279);
+  expect(drawing.rotate).toHaveBeenLastCalledWith(flightAngle);
+  expect(drawing.translate.mock.lastCall?.[0]).toBeCloseTo(296);
   drawing.drawImage.mockClear();
   motion.matches = true;
   advance(30);
@@ -588,6 +660,8 @@ test("golden banana has its own sprite, catch animation and bonus message", asyn
     fire(window, "keydown", { code: "KeyQ" });
     fire(window, "keyup", { code: "KeyQ" });
   }
+  const flightAngle = Math.atan2(92, 248) - Math.PI / 2;
+  expect(drawing.rotate).toHaveBeenLastCalledWith(flightAngle);
   const sprite = el("#golden-sprite");
   expect(drawing.drawImage.mock.calls.some(([image]) => image === sprite)).toBe(
     true,
@@ -604,11 +678,11 @@ test("golden banana has its own sprite, catch animation and bonus message", asyn
   drawing.drawImage.mockClear();
   fire(window, "keydown", { code: "KeyQ" });
   expect(el("#reaction").textContent).toBe("Бонус +20");
-  expect(
-    drawing.drawImage.mock.calls.some(
-      ([image, , , width]) => image === sprite && width === 68,
-    ),
-  ).toBe(true);
+  expect(drawing.rotate).toHaveBeenLastCalledWith(flightAngle);
+  const caughtSprite = drawing.drawImage.mock.calls.find(
+    ([image]) => image === sprite,
+  );
+  expect(caughtSprite?.[3]).toBeCloseTo(102);
 });
 
 test("a failed result can be retried using the same round key", async () => {
