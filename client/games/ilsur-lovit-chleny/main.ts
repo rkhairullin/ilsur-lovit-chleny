@@ -1,3 +1,8 @@
+import catchEffect from "./assets/sounds/catch.mp3?url";
+import missEffect from "./assets/sounds/miss.mp3?url";
+import goldenEffect from "./assets/sounds/rooster_crowing.mp3?url";
+import { BackgroundMusic } from "../../shared/music/player.js";
+import { musicTracks } from "../../shared/music/playlist.js";
 import { GameInput, laneForKey, type Lane } from "./input.js";
 import { Round, goldenBonus, missLimit } from "./round.js";
 import { drawScene } from "./scene.js";
@@ -42,8 +47,13 @@ const decoySprite = document.querySelector<HTMLImageElement>("#decoy-sprite")!;
 const cannonSprite =
   document.querySelector<HTMLImageElement>("#cannon-sprite")!;
 const reaction = document.querySelector<HTMLElement>("#reaction")!;
-const soundButton = document.querySelector<HTMLButtonElement>("#sound")!;
-const sound = new GameSound(soundButton);
+const audioControls = document.querySelector<HTMLElement>("#audio-controls")!;
+const sound = new GameSound(
+  document.querySelector<HTMLButtonElement>("#sound")!,
+  document.querySelector<HTMLButtonElement>("#music")!,
+  new BackgroundMusic(musicTracks),
+  { catch: catchEffect, golden: goldenEffect, miss: missEffect },
+);
 const reactionText = {
   catch: "Отсосал",
   miss: "Лох! Пидр!",
@@ -115,7 +125,8 @@ function render() {
 
   const needsRotation = portraitPhone.matches;
   rotate.hidden = !needsRotation;
-  soundButton.hidden = needsRotation;
+  audioControls.hidden = needsRotation;
+  pause.hidden = round.state !== "playing";
   ready.hidden = needsRotation || round.state !== "ready";
   paused.hidden = needsRotation || round.state !== "paused";
   lost.hidden = needsRotation || round.state !== "lost";
@@ -130,6 +141,7 @@ function update() {
   previousTime = now;
   if (lastReaction && now >= reactionUntil) clearReaction();
   if (gameHasEnded()) {
+    sound.stopMusic();
     react("defeat");
     input.pause();
     render();
@@ -164,6 +176,7 @@ function begin() {
 }
 
 function continuePlay() {
+  sound.startMusic();
   sound.activate();
   input.resume(false);
   previousTime = performance.now();
@@ -186,7 +199,7 @@ function press(source: string, lane: Lane) {
         started: previousTime,
         golden: progress.golden,
       };
-      if (progress.golden) react("catch", `Бонус +${goldenBonus}`);
+      if (progress.golden) react("catch", `Бонус +${goldenBonus}`, "golden");
       else react("catch");
     } else if (swallow?.lane !== lane) {
       swallow = undefined;
@@ -201,15 +214,20 @@ function clearReaction() {
   reaction.textContent = "";
 }
 
-function react(kind: Reaction, text = reactionText[kind]) {
+function react(
+  kind: Reaction,
+  text = reactionText[kind],
+  effect: Parameters<GameSound["play"]>[0] = kind,
+) {
   lastReaction = kind;
   reactionUntil = previousTime + 750;
   reaction.dataset.reaction = kind;
   reaction.textContent = text;
-  sound.play(kind);
+  sound.play(effect);
 }
 
 function stop() {
+  sound.stopMusic();
   swallow = undefined;
   round.pause();
   input.pause();

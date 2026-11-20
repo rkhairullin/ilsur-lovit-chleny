@@ -52,7 +52,9 @@ async function mount(
       "#golden-sprite",
       "#cannon-sprite",
       "#reaction",
+      "#audio-controls",
       "#sound",
+      "#music",
     ].map((selector) => [selector, new ElementStub()]),
   );
   if (options.sprites) {

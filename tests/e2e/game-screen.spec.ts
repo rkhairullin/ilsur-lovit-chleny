@@ -41,14 +41,14 @@ test("keyboard positions, holding, and pause in the production build", async ({
   await page.keyboard.up("q");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "Пауза" })).toBeFocused();
-  await page.keyboard.press(
+  const tab =
     process.platform === "darwin" && test.info().project.name === "webkit"
       ? "Alt+Tab"
-      : "Tab",
-  );
-  await expect(
-    page.getByRole("button", { name: "Слева сверху" }),
-  ).toBeFocused();
+      : "Tab";
+  for (const name of ["Весь звук", "Музыка", "Слева сверху"]) {
+    await page.keyboard.press(tab);
+    await expect(page.getByRole("button", { name })).toBeFocused();
+  }
   await page.keyboard.down("Space");
   await expect(game).toHaveAttribute("data-position", "upper-left");
   await page.keyboard.up("Space");
@@ -362,7 +362,7 @@ test("sound preference persists and reduced motion removes reaction animation", 
   });
   await page.clock.install();
   await openGame(page);
-  const sound = page.getByRole("button", { name: "Звук" });
+  const sound = page.getByRole("button", { name: "Весь звук" });
   await expect(sound).toHaveAttribute("aria-pressed", "true");
   await sound.click();
   await page.reload();
@@ -516,6 +516,12 @@ for (const capture of [false, true]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.addInitScript(() => {
       Math.random = () => 0;
+      window.Audio = class extends Audio {
+        override async play() {
+          if (/\/rooster_crowing-[^/]+\.mp3$/.test(this.src))
+            document.documentElement.dataset.goldenSound = "played";
+        }
+      };
     });
     await page.clock.install();
     await page.clock.pauseAt(new Date(Date.now() + 1000));
@@ -550,6 +556,12 @@ for (const capture of [false, true]) {
       await expect(page.locator("#streak")).toHaveText(
         String(streak + Number(capture)),
       );
+      const root = page.locator("html");
+      if (capture) {
+        await expect(root).toHaveAttribute("data-golden-sound", "played");
+      } else {
+        await expect(root).not.toHaveAttribute("data-golden-sound", "played");
+      }
       break;
     }
   });
