@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { lanes } from "../../client/game/input.js";
-import { bananaSequence } from "../../client/game/sequence.js";
+import { lanes } from "../../client/games/ilsur-lovit-chleny/input.js";
+import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 function sample(seed: number, length: number) {
   const sequence = bananaSequence(() => {

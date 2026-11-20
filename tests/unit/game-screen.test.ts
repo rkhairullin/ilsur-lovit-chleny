@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { bananaSequence } from "../../client/game/sequence.js";
+import { bananaSequence } from "../../client/games/ilsur-lovit-chleny/sequence.js";
 
 class ElementStub extends EventTarget {
   dataset: Record<string, string> = {};
@@ -144,7 +144,7 @@ async function mount(
     now += delta;
     frames.shift()?.(now);
   };
-  await import("../../client/game/main.js");
+  await import("../../client/games/ilsur-lovit-chleny/main.js");
   return {
     elements,
     lane,

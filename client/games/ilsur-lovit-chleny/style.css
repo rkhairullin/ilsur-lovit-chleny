@@ -68,7 +68,8 @@ button:focus-visible {
   border: 1px solid #c04fbd;
   border-radius: 18px;
   overflow: hidden;
-  background: #180c2c url("/disco-floor.webp") center top / cover no-repeat;
+  background: #180c2c url("./assets/disco-floor.webp") center top / cover
+    no-repeat;
 }
 canvas {
   display: block;
@@ -216,7 +217,7 @@ canvas {
   #lost {
     background:
       linear-gradient(90deg, #130a2455, #130a24f7 44%),
-      url("/login-character.png") left 7% bottom / auto 88% no-repeat,
+      url("/login/login-character.png") left 7% bottom / auto 88% no-repeat,
       #130a24f7;
   }
 }

@@ -8,8 +8,8 @@
     />
     <meta name="color-scheme" content="dark" />
     <title>Ильсур ловит члены</title>
-    <link rel="stylesheet" href="/style.css" />
-    <script type="module" src="/game/main.ts"></script>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./main.ts"></script>
   </head>
   <body>
     <main class="game" aria-label="Ильсур ловит члены">
@@ -30,11 +30,21 @@
       </header>
       <section class="arena" aria-label="Игровое поле">
         <canvas width="1200" height="540" aria-hidden="true"></canvas>
-        <img id="hero-sprite" src="/login-character.png" alt="" hidden />
-        <img id="banana-sprite" src="/banana.png" alt="" hidden />
-        <img id="golden-sprite" src="/banana-golden.png" alt="" hidden />
-        <img id="decoy-sprite" src="/banana-decoy.png" alt="" hidden />
-        <img id="cannon-sprite" src="/disco-cannon.webp" alt="" hidden />
+        <img id="hero-sprite" src="/login/login-character.png" alt="" hidden />
+        <img id="banana-sprite" src="./assets/banana.png" alt="" hidden />
+        <img
+          id="golden-sprite"
+          src="./assets/banana-golden.png"
+          alt=""
+          hidden
+        />
+        <img id="decoy-sprite" src="./assets/banana-decoy.png" alt="" hidden />
+        <img
+          id="cannon-sprite"
+          src="./assets/disco-cannon.webp"
+          alt=""
+          hidden
+        />
         <div id="reaction" class="reaction" role="status"></div>
         <div class="controls">
           <button

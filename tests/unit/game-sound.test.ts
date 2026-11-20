@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { GameSound } from "../../client/game/sound.js";
+import { GameSound } from "../../client/games/ilsur-lovit-chleny/sound.js";
 
 function setup(stored: string | null = null) {
   const button = Object.assign(new EventTarget(), { setAttribute: vi.fn() });

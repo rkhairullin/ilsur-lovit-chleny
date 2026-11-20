@@ -11,7 +11,7 @@ const games: GameCard[] = [
   {
     title: "Ильсур ловит члены",
     href: "/ilsur-lovit-chleny/",
-    image: "/game-preview.png",
+    image: "/catalog/game-preview.png",
     imageAlt: "Скриншот игрового экрана во время полёта банана",
     description:
       "Диско-пушки палят членами, а у Ильсура опять руки заняты. Помоги ему поймать их ртом, держи темп и докажи, что у Ильсура глубокая глотка",
@@ -56,7 +56,7 @@ export function renderCatalog(nickname: string) {
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <title>Ильсур - пИтух</title>
-    <link rel="stylesheet" href="/catalog.css">
+    <link rel="stylesheet" href="/catalog/catalog.css">
   </head>
   <body>
     <main class="catalog" aria-label="Игры, где можно отпетушить Ильсура">

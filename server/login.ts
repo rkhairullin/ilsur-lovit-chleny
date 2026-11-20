@@ -35,13 +35,13 @@ function loginPage(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ильсур - пИтух</title>
-<link rel="stylesheet" href="/login.css">
+<link rel="stylesheet" href="/login/login.css">
 </head>
 <body>
 <main class="login">
 <h1>Ильсур - пИтух</h1>
 <div class="login-stage">
-<img class="login-character" src="/login-character.png" width="1194" height="1317" alt="Ильсур в образе петуха">
+<img class="login-character" src="/login/login-character.png" width="1194" height="1317" alt="Ильсур в образе петуха">
 <div class="login-panel">
 ${message ? `<p role="alert">${message}</p>` : ""}
 <form method="post" action="/login">
@@ -156,7 +156,7 @@ export function registerLogin(app: FastifyInstance, options: LoginOptions) {
     if (!player)
       return reply.redirect(`/login?returnTo=${encodeURIComponent(gamePath)}`);
     const template = await readFile(
-      new URL("../client/index.html", import.meta.url),
+      new URL("../client/games/ilsur-lovit-chleny/index.html", import.meta.url),
       "utf8",
     );
     const nickname = player.nickname.replace(
